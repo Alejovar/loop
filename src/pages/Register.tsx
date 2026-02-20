@@ -38,6 +38,7 @@ const STEPS = [
   { number: 1, label: "Cuenta" },
   { number: 2, label: "Perfil" },
   { number: 3, label: "Intereses" },
+  { number: 4, label: "Verificar" },
 ];
 
 const Register = () => {
