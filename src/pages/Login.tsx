@@ -11,6 +11,11 @@ const Login = () => {
   const [showPassword, setShowPassword] = useState(false);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [captchaVerified, setCaptchaVerified] = useState(false);
+
+  const handleCaptchaChange = useCallback((verified: boolean) => {
+    setCaptchaVerified(verified);
+  }, []);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
