@@ -1,15 +1,21 @@
-import { useState } from "react";
+import { useState, useCallback } from "react";
 import { Link } from "react-router-dom";
 import AuthLayout from "@/components/AuthLayout";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import MathCaptcha from "@/components/MathCaptcha";
 import { Eye, EyeOff } from "lucide-react";
 
 const Login = () => {
   const [showPassword, setShowPassword] = useState(false);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [captchaVerified, setCaptchaVerified] = useState(false);
+
+  const handleCaptchaChange = useCallback((verified: boolean) => {
+    setCaptchaVerified(verified);
+  }, []);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -59,13 +65,19 @@ const Login = () => {
           </div>
         </div>
 
+        <MathCaptcha onVerified={handleCaptchaChange} />
+
         <div className="text-right">
           <button type="button" className="text-sm text-primary hover:underline">
             ¿Olvidaste tu contraseña?
           </button>
         </div>
 
-        <Button type="submit" className="w-full gradient-primary text-primary-foreground font-semibold h-11">
+        <Button
+          type="submit"
+          disabled={!captchaVerified}
+          className="w-full gradient-primary text-primary-foreground font-semibold h-11 disabled:opacity-50"
+        >
           Entrar
         </Button>
       </form>

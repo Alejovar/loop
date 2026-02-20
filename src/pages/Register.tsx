@@ -8,6 +8,7 @@ import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Calendar } from "@/components/ui/calendar";
 import { Textarea } from "@/components/ui/textarea";
+import OtpVerification from "@/components/OtpVerification";
 import { Eye, EyeOff, CalendarIcon, ArrowRight, ArrowLeft, Check } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { format } from "date-fns";
@@ -37,6 +38,7 @@ const STEPS = [
   { number: 1, label: "Cuenta" },
   { number: 2, label: "Perfil" },
   { number: 3, label: "Intereses" },
+  { number: 4, label: "Verificar" },
 ];
 
 const Register = () => {
@@ -70,11 +72,13 @@ const Register = () => {
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (step < 3) {
+    if (step < 4) {
       setStep(step + 1);
-    } else {
-      // TODO: integrate auth
     }
+  };
+
+  const handleOtpVerified = () => {
+    // TODO: integrate auth - account fully created
   };
 
   return (
@@ -343,34 +347,45 @@ const Register = () => {
           </>
         )}
 
+        {/* ====== STEP 4: Verificación OTP ====== */}
+        {step === 4 && (
+          <OtpVerification
+            email={email}
+            onVerified={handleOtpVerified}
+            onBack={() => setStep(1)}
+          />
+        )}
+
         {/* Navigation buttons */}
-        <div className="flex gap-3">
-          {step > 1 && (
+        {step < 4 && (
+          <div className="flex gap-3">
+            {step > 1 && (
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => setStep(step - 1)}
+                className="flex-1 border-border bg-secondary hover:bg-muted"
+              >
+                <ArrowLeft size={16} className="mr-1" /> Atrás
+              </Button>
+            )}
             <Button
-              type="button"
-              variant="outline"
-              onClick={() => setStep(step - 1)}
-              className="flex-1 border-border bg-secondary hover:bg-muted"
+              type="submit"
+              className={cn(
+                "gradient-primary text-primary-foreground font-semibold h-11",
+                step > 1 ? "flex-1" : "w-full"
+              )}
             >
-              <ArrowLeft size={16} className="mr-1" /> Atrás
+              {step < 3 ? (
+                <>
+                  Siguiente <ArrowRight size={16} className="ml-1" />
+                </>
+              ) : (
+                "Verificar correo"
+              )}
             </Button>
-          )}
-          <Button
-            type="submit"
-            className={cn(
-              "gradient-primary text-primary-foreground font-semibold h-11",
-              step > 1 ? "flex-1" : "w-full"
-            )}
-          >
-            {step < 3 ? (
-              <>
-                Siguiente <ArrowRight size={16} className="ml-1" />
-              </>
-            ) : (
-              "Crear cuenta"
-            )}
-          </Button>
-        </div>
+          </div>
+        )}
       </form>
 
       <p className="text-center text-sm text-muted-foreground">
