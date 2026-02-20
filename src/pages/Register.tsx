@@ -347,34 +347,45 @@ const Register = () => {
           </>
         )}
 
+        {/* ====== STEP 4: Verificación OTP ====== */}
+        {step === 4 && (
+          <OtpVerification
+            email={email}
+            onVerified={handleOtpVerified}
+            onBack={() => setStep(1)}
+          />
+        )}
+
         {/* Navigation buttons */}
-        <div className="flex gap-3">
-          {step > 1 && (
+        {step < 4 && (
+          <div className="flex gap-3">
+            {step > 1 && (
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => setStep(step - 1)}
+                className="flex-1 border-border bg-secondary hover:bg-muted"
+              >
+                <ArrowLeft size={16} className="mr-1" /> Atrás
+              </Button>
+            )}
             <Button
-              type="button"
-              variant="outline"
-              onClick={() => setStep(step - 1)}
-              className="flex-1 border-border bg-secondary hover:bg-muted"
+              type="submit"
+              className={cn(
+                "gradient-primary text-primary-foreground font-semibold h-11",
+                step > 1 ? "flex-1" : "w-full"
+              )}
             >
-              <ArrowLeft size={16} className="mr-1" /> Atrás
+              {step < 3 ? (
+                <>
+                  Siguiente <ArrowRight size={16} className="ml-1" />
+                </>
+              ) : (
+                "Verificar correo"
+              )}
             </Button>
-          )}
-          <Button
-            type="submit"
-            className={cn(
-              "gradient-primary text-primary-foreground font-semibold h-11",
-              step > 1 ? "flex-1" : "w-full"
-            )}
-          >
-            {step < 3 ? (
-              <>
-                Siguiente <ArrowRight size={16} className="ml-1" />
-              </>
-            ) : (
-              "Crear cuenta"
-            )}
-          </Button>
-        </div>
+          </div>
+        )}
       </form>
 
       <p className="text-center text-sm text-muted-foreground">
