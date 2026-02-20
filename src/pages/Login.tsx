@@ -65,13 +65,19 @@ const Login = () => {
           </div>
         </div>
 
+        <MathCaptcha onVerified={handleCaptchaChange} />
+
         <div className="text-right">
           <button type="button" className="text-sm text-primary hover:underline">
             ¿Olvidaste tu contraseña?
           </button>
         </div>
 
-        <Button type="submit" className="w-full gradient-primary text-primary-foreground font-semibold h-11">
+        <Button
+          type="submit"
+          disabled={!captchaVerified}
+          className="w-full gradient-primary text-primary-foreground font-semibold h-11 disabled:opacity-50"
+        >
           Entrar
         </Button>
       </form>
