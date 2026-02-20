@@ -72,11 +72,13 @@ const Register = () => {
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (step < 3) {
+    if (step < 4) {
       setStep(step + 1);
-    } else {
-      // TODO: integrate auth
     }
+  };
+
+  const handleOtpVerified = () => {
+    // TODO: integrate auth - account fully created
   };
 
   return (
