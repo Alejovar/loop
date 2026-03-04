@@ -14,6 +14,8 @@ import { format } from "date-fns";
 import { es } from "date-fns/locale";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
+import { logAction } from "@/hooks/useAuditLog";
+import { registerSchema, profileSchema } from "@/lib/validation";
 
 const INTEREST_CATEGORIES = [
   { id: "musica", label: "🎵 Música" },
@@ -72,11 +74,38 @@ const Register = () => {
       prev.includes(tag) ? prev.filter((t) => t !== tag) : [...prev, tag]
     );
 
+  const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    if (step < 3) {
-      setStep(step + 1);
+    if (step === 1) {
+      const result = registerSchema.safeParse({ email, password });
+      if (!result.success) {
+        const errs: Record<string, string> = {};
+        result.error.errors.forEach((err) => {
+          if (err.path[0]) errs[err.path[0] as string] = err.message;
+        });
+        setFieldErrors(errs);
+        return;
+      }
+      setFieldErrors({});
+      setStep(2);
+      return;
+    }
+
+    if (step === 2) {
+      const result = profileSchema.safeParse({ name, username, gender, birthDate });
+      if (!result.success) {
+        const errs: Record<string, string> = {};
+        result.error.errors.forEach((err) => {
+          if (err.path[0]) errs[err.path[0] as string] = err.message;
+        });
+        setFieldErrors(errs);
+        return;
+      }
+      setFieldErrors({});
+      setStep(3);
       return;
     }
 
@@ -111,6 +140,8 @@ const Register = () => {
           await supabase.from("user_interests").insert(interests);
         }
       }
+
+      await logAction("register", "auth", { email });
 
       toast({
         title: "¡Cuenta creada!",
