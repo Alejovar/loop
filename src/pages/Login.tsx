@@ -8,6 +8,8 @@ import MathCaptcha from "@/components/MathCaptcha";
 import { Eye, EyeOff, Loader2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
+import { logAction } from "@/hooks/useAuditLog";
+import { loginSchema } from "@/lib/validation";
 
 const Login = () => {
   const navigate = useNavigate();
@@ -16,6 +18,7 @@ const Login = () => {
   const [password, setPassword] = useState("");
   const [captchaVerified, setCaptchaVerified] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [errors, setErrors] = useState<Record<string, string>>({});
 
   const handleCaptchaChange = useCallback((verified: boolean) => {
     setCaptchaVerified(verified);
@@ -25,15 +28,41 @@ const Login = () => {
     e.preventDefault();
     if (!captchaVerified) return;
 
+    const validation = loginSchema.safeParse({ email, password });
+    if (!validation.success) {
+      const fieldErrors: Record<string, string> = {};
+      validation.error.errors.forEach((err) => {
+        if (err.path[0]) fieldErrors[err.path[0] as string] = err.message;
+      });
+      setErrors(fieldErrors);
+      return;
+    }
+    setErrors({});
+
     setLoading(true);
     try {
       const { error } = await supabase.auth.signInWithPassword({ email, password });
       if (error) throw error;
-      navigate("/dashboard");
+
+      await logAction("login", "auth", { email });
+
+      // Check MFA
+      const { data: mfaData } = await supabase.auth.mfa.getAuthenticatorAssuranceLevel();
+      if (mfaData?.nextLevel === "aal2" && mfaData?.currentLevel === "aal1") {
+        navigate("/mfa-verify");
+      } else {
+        navigate("/dashboard");
+      }
     } catch (error: any) {
+      let message = error.message;
+      if (message.includes("Invalid login credentials")) {
+        message = "Email o contraseña incorrectos.";
+      } else if (message.includes("Email not confirmed")) {
+        message = "Debes verificar tu email antes de iniciar sesión.";
+      }
       toast({
         title: "Error al iniciar sesión",
-        description: error.message,
+        description: message,
         variant: "destructive",
       });
     } finally {
@@ -52,6 +81,7 @@ const Login = () => {
         <div className="space-y-2">
           <Label htmlFor="email">Correo electrónico</Label>
           <Input id="email" type="email" placeholder="tu@email.com" value={email} onChange={(e) => setEmail(e.target.value)} className="bg-input border-border" required />
+          {errors.email && <p className="text-xs text-destructive">{errors.email}</p>}
         </div>
 
         <div className="space-y-2">
@@ -62,30 +92,15 @@ const Login = () => {
               {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
             </button>
           </div>
+          {errors.password && <p className="text-xs text-destructive">{errors.password}</p>}
         </div>
 
         <MathCaptcha onVerified={handleCaptchaChange} />
-
-        <div className="text-right">
-          <button type="button" className="text-sm text-primary hover:underline">¿Olvidaste tu contraseña?</button>
-        </div>
 
         <Button type="submit" disabled={!captchaVerified || loading} className="w-full gradient-primary text-primary-foreground font-semibold h-11 disabled:opacity-50">
           {loading ? <Loader2 size={16} className="animate-spin" /> : "Entrar"}
         </Button>
       </form>
-
-      <div className="relative">
-        <div className="absolute inset-0 flex items-center"><div className="w-full border-t border-border" /></div>
-        <div className="relative flex justify-center text-xs">
-          <span className="px-2 text-muted-foreground" style={{ backgroundColor: "hsl(230 15% 12% / 0.6)" }}>o continúa con</span>
-        </div>
-      </div>
-
-      <div className="grid grid-cols-2 gap-3">
-        <Button variant="outline" className="border-border bg-secondary hover:bg-muted">Google</Button>
-        <Button variant="outline" className="border-border bg-secondary hover:bg-muted">Apple</Button>
-      </div>
 
       <p className="text-center text-sm text-muted-foreground">
         ¿No tienes cuenta?{" "}
