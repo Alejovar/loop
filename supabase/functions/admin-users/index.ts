@@ -126,6 +126,16 @@ Deno.serve(async (req) => {
         if (!target_user_id || !new_role)
           throw new Error("target_user_id and new_role required");
 
+        // Prevent admin from demoting themselves
+        if (target_user_id === user.id && new_role !== "admin") {
+          return json({ error: "No puedes modificar tu propio rol de administrador." }, 403);
+        }
+
+        // Validate role value
+        if (!["admin", "user"].includes(new_role)) {
+          return json({ error: "Rol inválido." }, 400);
+        }
+
         await adminClient
           .from("user_roles")
           .delete()
