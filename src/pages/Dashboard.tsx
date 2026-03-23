@@ -2,6 +2,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useRole } from "@/hooks/useRole";
 import { Button } from "@/components/ui/button";
 import { LogOut, ShieldCheck, Shield } from "lucide-react";
+import { maskEmail } from "@/lib/maskEmail";
 import { useNavigate } from "react-router-dom";
 import LoopLogo from "@/components/LoopLogo";
 
