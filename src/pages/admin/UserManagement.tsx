@@ -338,18 +338,24 @@ const UserManagement = () => {
                     </div>
                   </TableCell>
                   <TableCell>
-                    <Select
-                      value={u.roles?.[0] || "user"}
-                      onValueChange={(v) => handleUpdateRole(u.id, v)}
-                    >
-                      <SelectTrigger className="w-32 h-8 text-xs bg-input border-border">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="user">Usuario</SelectItem>
-                        <SelectItem value="admin">Admin</SelectItem>
-                      </SelectContent>
-                    </Select>
+                    {u.id === currentUser?.id ? (
+                      <Badge variant="outline" className="text-xs border-border">
+                        {u.roles?.[0] === "admin" ? "Admin" : "Usuario"} (tú)
+                      </Badge>
+                    ) : (
+                      <Select
+                        value={u.roles?.[0] || "user"}
+                        onValueChange={(v) => handleUpdateRole(u.id, v)}
+                      >
+                        <SelectTrigger className="w-32 h-8 text-xs bg-input border-border">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="user">Usuario</SelectItem>
+                          <SelectItem value="admin">Admin</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    )}
                   </TableCell>
                   <TableCell>
                     {u.banned_until ? (
