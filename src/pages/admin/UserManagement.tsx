@@ -55,6 +55,7 @@ interface AdminUser {
 }
 
 const UserManagement = () => {
+  const { user: currentUser } = useAuth();
   const queryClient = useQueryClient();
   const [search, setSearch] = useState("");
   const [createOpen, setCreateOpen] = useState(false);
