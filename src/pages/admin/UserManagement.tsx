@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/contexts/AuthContext";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -54,6 +55,7 @@ interface AdminUser {
 }
 
 const UserManagement = () => {
+  const { user: currentUser } = useAuth();
   const queryClient = useQueryClient();
   const [search, setSearch] = useState("");
   const [createOpen, setCreateOpen] = useState(false);
@@ -336,18 +338,24 @@ const UserManagement = () => {
                     </div>
                   </TableCell>
                   <TableCell>
-                    <Select
-                      value={u.roles?.[0] || "user"}
-                      onValueChange={(v) => handleUpdateRole(u.id, v)}
-                    >
-                      <SelectTrigger className="w-32 h-8 text-xs bg-input border-border">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="user">Usuario</SelectItem>
-                        <SelectItem value="admin">Admin</SelectItem>
-                      </SelectContent>
-                    </Select>
+                    {u.id === currentUser?.id ? (
+                      <Badge variant="outline" className="text-xs border-border">
+                        {u.roles?.[0] === "admin" ? "Admin" : "Usuario"} (tú)
+                      </Badge>
+                    ) : (
+                      <Select
+                        value={u.roles?.[0] || "user"}
+                        onValueChange={(v) => handleUpdateRole(u.id, v)}
+                      >
+                        <SelectTrigger className="w-32 h-8 text-xs bg-input border-border">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="user">Usuario</SelectItem>
+                          <SelectItem value="admin">Admin</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    )}
                   </TableCell>
                   <TableCell>
                     {u.banned_until ? (
@@ -382,36 +390,38 @@ const UserManagement = () => {
                       : "Nunca"}
                   </TableCell>
                   <TableCell className="text-right">
-                    <div className="flex items-center justify-end gap-1">
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() =>
-                          handleToggleBan(u.id, !u.banned_until)
-                        }
-                        className="h-7 text-xs border-border"
-                        title={
-                          u.banned_until ? "Desbloquear" : "Bloquear"
-                        }
-                      >
-                        {u.banned_until ? (
-                          <CheckCircle size={13} />
-                        ) : (
-                          <Ban size={13} />
-                        )}
-                      </Button>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() =>
-                          handleGenerateLink(u.id, u.email)
-                        }
-                        className="h-7 text-xs border-border"
-                        title="Generar enlace de acceso"
-                      >
-                        <Link2 size={13} />
-                      </Button>
-                    </div>
+                    {u.id !== currentUser?.id && (
+                      <div className="flex items-center justify-end gap-1">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() =>
+                            handleToggleBan(u.id, !u.banned_until)
+                          }
+                          className="h-7 text-xs border-border"
+                          title={
+                            u.banned_until ? "Desbloquear" : "Bloquear"
+                          }
+                        >
+                          {u.banned_until ? (
+                            <CheckCircle size={13} />
+                          ) : (
+                            <Ban size={13} />
+                          )}
+                        </Button>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() =>
+                            handleGenerateLink(u.id, u.email)
+                          }
+                          className="h-7 text-xs border-border"
+                          title="Generar enlace de acceso"
+                        >
+                          <Link2 size={13} />
+                        </Button>
+                      </div>
+                    )}
                   </TableCell>
                 </TableRow>
               ))}

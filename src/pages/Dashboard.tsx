@@ -2,6 +2,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useRole } from "@/hooks/useRole";
 import { Button } from "@/components/ui/button";
 import { LogOut, ShieldCheck, Shield } from "lucide-react";
+import { maskEmail } from "@/lib/maskEmail";
 import { useNavigate } from "react-router-dom";
 import LoopLogo from "@/components/LoopLogo";
 
@@ -21,7 +22,7 @@ const Dashboard = () => {
                 <Shield size={14} className="mr-1" /> Admin
               </Button>
             )}
-            <span className="text-sm text-muted-foreground hidden sm:block">{user?.email}</span>
+            <span className="text-sm text-muted-foreground hidden sm:block">{maskEmail(user?.email ?? "")}</span>
             <Button variant="outline" size="sm" onClick={signOut} className="border-border">
               <LogOut size={16} className="mr-1" /> Salir
             </Button>
