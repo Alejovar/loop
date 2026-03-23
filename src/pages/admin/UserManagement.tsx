@@ -390,36 +390,38 @@ const UserManagement = () => {
                       : "Nunca"}
                   </TableCell>
                   <TableCell className="text-right">
-                    <div className="flex items-center justify-end gap-1">
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() =>
-                          handleToggleBan(u.id, !u.banned_until)
-                        }
-                        className="h-7 text-xs border-border"
-                        title={
-                          u.banned_until ? "Desbloquear" : "Bloquear"
-                        }
-                      >
-                        {u.banned_until ? (
-                          <CheckCircle size={13} />
-                        ) : (
-                          <Ban size={13} />
-                        )}
-                      </Button>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() =>
-                          handleGenerateLink(u.id, u.email)
-                        }
-                        className="h-7 text-xs border-border"
-                        title="Generar enlace de acceso"
-                      >
-                        <Link2 size={13} />
-                      </Button>
-                    </div>
+                    {u.id !== currentUser?.id && (
+                      <div className="flex items-center justify-end gap-1">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() =>
+                            handleToggleBan(u.id, !u.banned_until)
+                          }
+                          className="h-7 text-xs border-border"
+                          title={
+                            u.banned_until ? "Desbloquear" : "Bloquear"
+                          }
+                        >
+                          {u.banned_until ? (
+                            <CheckCircle size={13} />
+                          ) : (
+                            <Ban size={13} />
+                          )}
+                        </Button>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() =>
+                            handleGenerateLink(u.id, u.email)
+                          }
+                          className="h-7 text-xs border-border"
+                          title="Generar enlace de acceso"
+                        >
+                          <Link2 size={13} />
+                        </Button>
+                      </div>
+                    )}
                   </TableCell>
                 </TableRow>
               ))}
