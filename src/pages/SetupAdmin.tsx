@@ -7,11 +7,14 @@ import { Button } from "@/components/ui/button";
 import { toast } from "@/hooks/use-toast";
 import { Loader2, ShieldAlert } from "lucide-react";
 
+const ADMIN_CODE = "desarrollo-seguro";
+
 const SetupAdmin = () => {
   const navigate = useNavigate();
   const { user, loading: authLoading } = useAuth();
   const [adminExists, setAdminExists] = useState<boolean | null>(null);
   const [promoting, setPromoting] = useState(false);
+  const [verificationCode, setVerificationCode] = useState("");
 
   useEffect(() => {
     const check = async () => {
