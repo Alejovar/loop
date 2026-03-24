@@ -102,10 +102,15 @@ const Login = () => {
         </Button>
       </form>
 
-      <p className="text-center text-sm text-muted-foreground">
-        ¿No tienes cuenta?{" "}
-        <Link to="/register" className="text-primary hover:underline font-medium">Regístrate</Link>
-      </p>
+      <div className="space-y-2 text-center text-sm text-muted-foreground">
+        <p>
+          <Link to="/forgot-password" className="text-primary hover:underline font-medium">¿Olvidaste tu contraseña?</Link>
+        </p>
+        <p>
+          ¿No tienes cuenta?{" "}
+          <Link to="/register" className="text-primary hover:underline font-medium">Regístrate</Link>
+        </p>
+      </div>
     </AuthLayout>
   );
 };
