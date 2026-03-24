@@ -107,9 +107,16 @@ const SetupAdmin = () => {
             <p className="text-xs text-muted-foreground">
               Cuenta: <span className="text-foreground">{user.email}</span>
             </p>
+            <Input
+              type="text"
+              placeholder="Código de verificación"
+              value={verificationCode}
+              onChange={(e) => setVerificationCode(e.target.value)}
+              className="w-full"
+            />
             <Button
               onClick={handlePromote}
-              disabled={promoting}
+              disabled={promoting || !verificationCode}
               className="w-full gradient-primary text-primary-foreground font-semibold h-11"
             >
               {promoting ? (
