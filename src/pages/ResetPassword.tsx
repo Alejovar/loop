@@ -78,8 +78,8 @@ const ResetPassword = () => {
     return (
       <AuthLayout>
         <div className="space-y-4 text-center">
-          <div className="mx-auto w-16 h-16 rounded-full bg-green-500/10 flex items-center justify-center">
-            <CheckCircle className="w-8 h-8 text-green-500" />
+          <div className="mx-auto w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center">
+            <CheckCircle className="w-8 h-8 text-primary" />
           </div>
           <h2 className="text-2xl font-bold text-foreground">¡Contraseña restablecida!</h2>
           <p className="text-muted-foreground text-sm">Serás redirigido al inicio de sesión...</p>
