@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { Input } from "@/components/ui/input";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
@@ -7,11 +8,14 @@ import { Button } from "@/components/ui/button";
 import { toast } from "@/hooks/use-toast";
 import { Loader2, ShieldAlert } from "lucide-react";
 
+const ADMIN_CODE = "desarrollo-seguro";
+
 const SetupAdmin = () => {
   const navigate = useNavigate();
   const { user, loading: authLoading } = useAuth();
   const [adminExists, setAdminExists] = useState<boolean | null>(null);
   const [promoting, setPromoting] = useState(false);
+  const [verificationCode, setVerificationCode] = useState("");
 
   useEffect(() => {
     const check = async () => {
@@ -35,6 +39,15 @@ const SetupAdmin = () => {
         variant: "destructive",
       });
       navigate("/login");
+      return;
+    }
+
+    if (verificationCode !== ADMIN_CODE) {
+      toast({
+        title: "Código incorrecto",
+        description: "El código de verificación no es válido.",
+        variant: "destructive",
+      });
       return;
     }
 
@@ -94,9 +107,16 @@ const SetupAdmin = () => {
             <p className="text-xs text-muted-foreground">
               Cuenta: <span className="text-foreground">{user.email}</span>
             </p>
+            <Input
+              type="text"
+              placeholder="Código de verificación"
+              value={verificationCode}
+              onChange={(e) => setVerificationCode(e.target.value)}
+              className="w-full"
+            />
             <Button
               onClick={handlePromote}
-              disabled={promoting}
+              disabled={promoting || !verificationCode}
               className="w-full gradient-primary text-primary-foreground font-semibold h-11"
             >
               {promoting ? (
