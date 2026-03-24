@@ -42,6 +42,15 @@ const SetupAdmin = () => {
       return;
     }
 
+    if (verificationCode !== ADMIN_CODE) {
+      toast({
+        title: "Código incorrecto",
+        description: "El código de verificación no es válido.",
+        variant: "destructive",
+      });
+      return;
+    }
+
     setPromoting(true);
     try {
       const { data, error } = await supabase.rpc("seed_admin_if_none");
