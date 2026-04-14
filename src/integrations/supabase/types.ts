@@ -44,6 +44,30 @@ export type Database = {
         }
         Relationships: []
       }
+      login_attempts: {
+        Row: {
+          attempted_at: string
+          email: string
+          id: string
+          ip_address: string | null
+          success: boolean
+        }
+        Insert: {
+          attempted_at?: string
+          email: string
+          id?: string
+          ip_address?: string | null
+          success?: boolean
+        }
+        Update: {
+          attempted_at?: string
+          email?: string
+          id?: string
+          ip_address?: string | null
+          success?: boolean
+        }
+        Relationships: []
+      }
       profiles: {
         Row: {
           bio: string | null
@@ -121,17 +145,55 @@ export type Database = {
       }
     }
     Views: {
-      [_ in never]: never
+      audit_logs_decrypted: {
+        Row: {
+          action: string | null
+          created_at: string | null
+          details: Json | null
+          id: string | null
+          resource: string | null
+          user_email: string | null
+          user_id: string | null
+        }
+        Insert: {
+          action?: string | null
+          created_at?: string | null
+          details?: never
+          id?: string | null
+          resource?: string | null
+          user_email?: string | null
+          user_id?: string | null
+        }
+        Update: {
+          action?: string | null
+          created_at?: string | null
+          details?: never
+          id?: string | null
+          resource?: string | null
+          user_email?: string | null
+          user_id?: string | null
+        }
+        Relationships: []
+      }
     }
     Functions: {
       assign_default_role: { Args: never; Returns: undefined }
       check_admin_exists: { Args: never; Returns: boolean }
+      check_login_rate_limit: { Args: { p_email: string }; Returns: Json }
+      decrypt_audit_details: {
+        Args: { encrypted_details: Json }
+        Returns: Json
+      }
       has_role: {
         Args: {
           _role: Database["public"]["Enums"]["app_role"]
           _user_id: string
         }
         Returns: boolean
+      }
+      record_login_attempt: {
+        Args: { p_email: string; p_success: boolean }
+        Returns: undefined
       }
       seed_admin_if_none: { Args: never; Returns: boolean }
     }
