@@ -145,36 +145,7 @@ export type Database = {
       }
     }
     Views: {
-      audit_logs_decrypted: {
-        Row: {
-          action: string | null
-          created_at: string | null
-          details: Json | null
-          id: string | null
-          resource: string | null
-          user_email: string | null
-          user_id: string | null
-        }
-        Insert: {
-          action?: string | null
-          created_at?: string | null
-          details?: never
-          id?: string | null
-          resource?: string | null
-          user_email?: string | null
-          user_id?: string | null
-        }
-        Update: {
-          action?: string | null
-          created_at?: string | null
-          details?: never
-          id?: string | null
-          resource?: string | null
-          user_email?: string | null
-          user_id?: string | null
-        }
-        Relationships: []
-      }
+      [_ in never]: never
     }
     Functions: {
       assign_default_role: { Args: never; Returns: undefined }
@@ -183,6 +154,18 @@ export type Database = {
       decrypt_audit_details: {
         Args: { encrypted_details: Json }
         Returns: Json
+      }
+      get_decrypted_audit_logs: {
+        Args: { p_limit?: number }
+        Returns: {
+          action: string
+          created_at: string
+          details: Json
+          id: string
+          resource: string
+          user_email: string
+          user_id: string
+        }[]
       }
       has_role: {
         Args: {
