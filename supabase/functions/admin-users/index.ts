@@ -19,24 +19,19 @@ Deno.serve(async (req) => {
 
   const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
   const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-  const anonKey = Deno.env.get("SUPABASE_ANON_KEY")!;
 
-  // Verify calling user
+  // Verify calling user using their JWT directly with service role client
   const authHeader = req.headers.get("Authorization");
   if (!authHeader) return json({ error: "No authorization header" }, 401);
 
-  const userClient = createClient(supabaseUrl, anonKey, {
-    global: { headers: { Authorization: authHeader } },
-  });
+  const adminClient = createClient(supabaseUrl, serviceRoleKey);
 
-  const {
-    data: { user },
-    error: authError,
-  } = await userClient.auth.getUser();
+  // Extract JWT and verify user
+  const jwt = authHeader.replace("Bearer ", "");
+  const { data: { user }, error: authError } = await adminClient.auth.getUser(jwt);
   if (authError || !user) return json({ error: "Unauthorized" }, 401);
 
-  // Check admin role with service role client
-  const adminClient = createClient(supabaseUrl, serviceRoleKey);
+  // Check admin role
   const { data: roleData } = await adminClient
     .from("user_roles")
     .select("role")
@@ -105,7 +100,6 @@ Deno.serve(async (req) => {
           .from("profiles")
           .upsert({ id: newUser.user.id, name });
 
-        // Audit log
         await adminClient.from("audit_logs").insert({
           user_id: user.id,
           user_email: user.email,
@@ -126,12 +120,10 @@ Deno.serve(async (req) => {
         if (!target_user_id || !new_role)
           throw new Error("target_user_id and new_role required");
 
-        // Prevent admin from demoting themselves
         if (target_user_id === user.id && new_role !== "admin") {
           return json({ error: "No puedes modificar tu propio rol de administrador." }, 403);
         }
 
-        // Validate role value
         if (!["admin", "user"].includes(new_role)) {
           return json({ error: "Rol inválido." }, 400);
         }

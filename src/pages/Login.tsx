@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import MathCaptcha from "@/components/MathCaptcha";
-import { Eye, EyeOff, Loader2 } from "lucide-react";
+import { Eye, EyeOff, Loader2, AlertTriangle } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
 import { logAction } from "@/hooks/useAuditLog";
@@ -19,10 +19,51 @@ const Login = () => {
   const [captchaVerified, setCaptchaVerified] = useState(false);
   const [loading, setLoading] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
+  const [rateLimited, setRateLimited] = useState(false);
+  const [lockoutUntil, setLockoutUntil] = useState<string | null>(null);
+  const [remainingAttempts, setRemainingAttempts] = useState(5);
 
   const handleCaptchaChange = useCallback((verified: boolean) => {
     setCaptchaVerified(verified);
   }, []);
+
+  const checkRateLimit = async (): Promise<boolean> => {
+    try {
+      const { data, error } = await supabase.rpc("check_login_rate_limit" as any, {
+        p_email: email,
+      });
+      if (error) {
+        console.error("Rate limit check error:", error);
+        return true; // Allow on error
+      }
+      const result = data as any;
+      if (!result.allowed) {
+        setRateLimited(true);
+        setLockoutUntil(result.lockout_until);
+        toast({
+          title: "Cuenta bloqueada temporalmente",
+          description: `Demasiados intentos fallidos. Intenta de nuevo después de las ${new Date(result.lockout_until).toLocaleTimeString("es")}.`,
+          variant: "destructive",
+        });
+        return false;
+      }
+      setRemainingAttempts(5 - (result.attempts || 0));
+      return true;
+    } catch {
+      return true;
+    }
+  };
+
+  const recordAttempt = async (success: boolean) => {
+    try {
+      await supabase.rpc("record_login_attempt" as any, {
+        p_email: email,
+        p_success: success,
+      });
+    } catch {
+      // Silent fail
+    }
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -39,11 +80,18 @@ const Login = () => {
     }
     setErrors({});
 
+    // Check rate limit before attempting login
+    const allowed = await checkRateLimit();
+    if (!allowed) return;
+
     setLoading(true);
     try {
       const { error } = await supabase.auth.signInWithPassword({ email, password });
       if (error) throw error;
 
+      await recordAttempt(true);
+      setRateLimited(false);
+      setRemainingAttempts(5);
       await logAction("login", "auth", { email });
 
       // Check MFA
@@ -54,6 +102,20 @@ const Login = () => {
         navigate("/dashboard");
       }
     } catch (error: any) {
+      await recordAttempt(false);
+      
+      // Re-check remaining attempts
+      try {
+        const { data } = await supabase.rpc("check_login_rate_limit" as any, { p_email: email });
+        const result = data as any;
+        if (!result.allowed) {
+          setRateLimited(true);
+          setLockoutUntil(result.lockout_until);
+        } else {
+          setRemainingAttempts(5 - (result.attempts || 0));
+        }
+      } catch {}
+
       let message = error.message;
       if (message.includes("Invalid login credentials")) {
         message = "Email o contraseña incorrectos.";
@@ -77,6 +139,16 @@ const Login = () => {
         <p className="text-muted-foreground text-sm">Ingresa tus datos para acceder a tu cuenta</p>
       </div>
 
+      {rateLimited && lockoutUntil && (
+        <div className="flex items-center gap-2 p-3 rounded-lg bg-destructive/10 border border-destructive/30 text-destructive text-sm">
+          <AlertTriangle size={16} className="shrink-0" />
+          <span>
+            Cuenta bloqueada temporalmente hasta las{" "}
+            {new Date(lockoutUntil).toLocaleTimeString("es")}.
+          </span>
+        </div>
+      )}
+
       <form onSubmit={handleSubmit} className="space-y-4">
         <div className="space-y-2">
           <Label htmlFor="email">Correo electrónico</Label>
@@ -97,7 +169,13 @@ const Login = () => {
 
         <MathCaptcha onVerified={handleCaptchaChange} />
 
-        <Button type="submit" disabled={!captchaVerified || loading} className="w-full gradient-primary text-primary-foreground font-semibold h-11 disabled:opacity-50">
+        {remainingAttempts < 5 && remainingAttempts > 0 && !rateLimited && (
+          <p className="text-xs text-amber-400 text-center">
+            {remainingAttempts} intento{remainingAttempts !== 1 ? "s" : ""} restante{remainingAttempts !== 1 ? "s" : ""}
+          </p>
+        )}
+
+        <Button type="submit" disabled={!captchaVerified || loading || rateLimited} className="w-full gradient-primary text-primary-foreground font-semibold h-11 disabled:opacity-50">
           {loading ? <Loader2 size={16} className="animate-spin" /> : "Entrar"}
         </Button>
       </form>

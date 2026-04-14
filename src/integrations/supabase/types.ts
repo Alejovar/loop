@@ -44,6 +44,30 @@ export type Database = {
         }
         Relationships: []
       }
+      login_attempts: {
+        Row: {
+          attempted_at: string
+          email: string
+          id: string
+          ip_address: string | null
+          success: boolean
+        }
+        Insert: {
+          attempted_at?: string
+          email: string
+          id?: string
+          ip_address?: string | null
+          success?: boolean
+        }
+        Update: {
+          attempted_at?: string
+          email?: string
+          id?: string
+          ip_address?: string | null
+          success?: boolean
+        }
+        Relationships: []
+      }
       profiles: {
         Row: {
           bio: string | null
@@ -126,12 +150,33 @@ export type Database = {
     Functions: {
       assign_default_role: { Args: never; Returns: undefined }
       check_admin_exists: { Args: never; Returns: boolean }
+      check_login_rate_limit: { Args: { p_email: string }; Returns: Json }
+      decrypt_audit_details: {
+        Args: { encrypted_details: Json }
+        Returns: Json
+      }
+      get_decrypted_audit_logs: {
+        Args: { p_limit?: number }
+        Returns: {
+          action: string
+          created_at: string
+          details: Json
+          id: string
+          resource: string
+          user_email: string
+          user_id: string
+        }[]
+      }
       has_role: {
         Args: {
           _role: Database["public"]["Enums"]["app_role"]
           _user_id: string
         }
         Returns: boolean
+      }
+      record_login_attempt: {
+        Args: { p_email: string; p_success: boolean }
+        Returns: undefined
       }
       seed_admin_if_none: { Args: never; Returns: boolean }
     }
