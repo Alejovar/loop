@@ -91,7 +91,7 @@ const AuditLogs = () => {
       <div>
         <h2 className="text-xl font-bold text-foreground flex items-center gap-2">
           Bitácora de actividad
-          <Lock size={16} className="text-primary" title="Datos encriptados" />
+          <Lock size={16} className="text-primary" />
         </h2>
         <p className="text-sm text-muted-foreground">
           Registro completo de todas las interacciones en el sistema (datos encriptados con pgcrypto)
