@@ -18,7 +18,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
-import { Loader2, Search } from "lucide-react";
+import { Loader2, Search, Lock } from "lucide-react";
 
 interface AuditLog {
   id: string;
@@ -55,12 +55,20 @@ const AuditLogs = () => {
   const { data: logs, isLoading } = useQuery<AuditLog[]>({
     queryKey: ["audit-logs"],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from("audit_logs" as any)
-        .select("*")
-        .order("created_at", { ascending: false })
-        .limit(500);
-      if (error) throw error;
+      // Use decrypted RPC function for admin viewing
+      const { data, error } = await supabase.rpc("get_decrypted_audit_logs" as any, {
+        p_limit: 500,
+      });
+      if (error) {
+        // Fallback to direct query if RPC fails
+        const { data: fallbackData, error: fallbackError } = await supabase
+          .from("audit_logs" as any)
+          .select("*")
+          .order("created_at", { ascending: false })
+          .limit(500);
+        if (fallbackError) throw fallbackError;
+        return (fallbackData as any[]) ?? [];
+      }
       return (data as any[]) ?? [];
     },
   });
@@ -81,11 +89,12 @@ const AuditLogs = () => {
   return (
     <div className="space-y-6">
       <div>
-        <h2 className="text-xl font-bold text-foreground">
+        <h2 className="text-xl font-bold text-foreground flex items-center gap-2">
           Bitácora de actividad
+          <Lock size={16} className="text-primary" title="Datos encriptados" />
         </h2>
         <p className="text-sm text-muted-foreground">
-          Registro completo de todas las interacciones en el sistema
+          Registro completo de todas las interacciones en el sistema (datos encriptados con pgcrypto)
         </p>
       </div>
 
@@ -136,6 +145,7 @@ const AuditLogs = () => {
             <TableBody>
               {filteredLogs?.map((log) => {
                 const actionInfo = ACTION_LABELS[log.action];
+                const isEncrypted = log.details && '_encrypted' in (log.details || {});
                 return (
                   <TableRow key={log.id} className="border-border">
                     <TableCell className="text-xs text-muted-foreground whitespace-nowrap">
@@ -161,7 +171,11 @@ const AuditLogs = () => {
                       {log.resource || "—"}
                     </TableCell>
                     <TableCell className="max-w-xs">
-                      {Object.keys(log.details || {}).length > 0 ? (
+                      {isEncrypted ? (
+                        <span className="text-xs text-amber-400 flex items-center gap-1">
+                          <Lock size={12} /> Encriptado
+                        </span>
+                      ) : Object.keys(log.details || {}).length > 0 ? (
                         <code className="text-xs text-muted-foreground bg-secondary rounded px-1.5 py-0.5 break-all">
                           {JSON.stringify(log.details)}
                         </code>
