@@ -8,12 +8,14 @@ import {
   ImagePlus,
   Loader2,
   LogOut,
-  MessageCircle,
   Repeat2,
   Save,
+  Search,
   Send,
   Shield,
+  Trash2,
   UserRound,
+  Users,
   X,
 } from "lucide-react";
 
@@ -25,6 +27,7 @@ import { commentSchema, postSchema, socialProfileSchema } from "@/lib/validation
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
 import LoopLogo from "@/components/LoopLogo";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -73,9 +76,14 @@ type FeedComment = CommentRow & {
   author?: ProfileRow;
 };
 
+type FeedLike = LikeRow & {
+  author?: ProfileRow;
+};
+
 type FeedPost = PostRow & {
   author?: ProfileRow;
   comments: FeedComment[];
+  likes: FeedLike[];
   likeCount: number;
   repostCount: number;
   likedByMe: boolean;
@@ -83,15 +91,21 @@ type FeedPost = PostRow & {
   imageUrl: string | null;
 };
 
+type DeleteTarget =
+  | { type: "post"; id: string; imagePath: string | null }
+  | { type: "comment"; id: string };
+
 const getInitials = (name?: string | null, username?: string | null, email?: string | null) => {
   const source = name || username || email || "U";
-  return source
-    .replace("@", "")
-    .split(/[\s._-]+/)
-    .filter(Boolean)
-    .slice(0, 2)
-    .map((part) => part[0]?.toUpperCase())
-    .join("") || "U";
+  return (
+    source
+      .replace("@", "")
+      .split(/[\s._-]+/)
+      .filter(Boolean)
+      .slice(0, 2)
+      .map((part) => part[0]?.toUpperCase())
+      .join("") || "U"
+  );
 };
 
 const getDisplayName = (profile?: ProfileRow, email?: string | null) => {
@@ -114,6 +128,8 @@ const Dashboard = () => {
   const [composerImage, setComposerImage] = useState<File | null>(null);
   const [composerPreview, setComposerPreview] = useState<string | null>(null);
   const [commentDrafts, setCommentDrafts] = useState<Record<string, string>>({});
+  const [userSearch, setUserSearch] = useState("");
+  const [deleteTarget, setDeleteTarget] = useState<DeleteTarget | null>(null);
 
   const dashboardQuery = useQuery({
     queryKey: ["social-dashboard", user?.id],
@@ -169,6 +185,7 @@ const Dashboard = () => {
           user.id,
           ...posts.map((post) => post.user_id),
           ...comments.map((comment) => comment.user_id),
+          ...likes.map((like) => like.user_id),
         ]),
       );
 
@@ -197,9 +214,9 @@ const Dashboard = () => {
         return acc;
       }, {});
 
-      const likesByPost = likes.reduce<Record<string, LikeRow[]>>((acc, like) => {
+      const likesByPost = likes.reduce<Record<string, FeedLike[]>>((acc, like) => {
         acc[like.post_id] ??= [];
-        acc[like.post_id].push(like);
+        acc[like.post_id].push({ ...like, author: profileMap.get(like.user_id) });
         return acc;
       }, {});
 
@@ -217,6 +234,7 @@ const Dashboard = () => {
           ...post,
           author: profileMap.get(post.user_id),
           comments: commentsByPost[post.id] ?? [],
+          likes: postLikes,
           likeCount: postLikes.length,
           repostCount: postReposts.length,
           likedByMe: postLikes.some((like) => like.user_id === user.id),
@@ -229,6 +247,23 @@ const Dashboard = () => {
         profile: ((profileData as unknown as ProfileRow | null) ?? profileMap.get(user.id) ?? null),
         feed,
       };
+    },
+  });
+
+  const userSearchQuery = useQuery({
+    queryKey: ["user-search", userSearch],
+    enabled: userSearch.trim().length >= 2,
+    queryFn: async () => {
+      const term = userSearch.trim();
+      const { data, error } = await supabase
+        .from("profiles" as any)
+        .select("id, name, username, bio, avatar_url")
+        .or(`username.ilike.%${term}%,name.ilike.%${term}%`)
+        .order("username", { ascending: true })
+        .limit(20);
+
+      if (error) throw error;
+      return (data ?? []) as unknown as ProfileRow[];
     },
   });
 
@@ -255,6 +290,9 @@ const Dashboard = () => {
 
   const feed = dashboardQuery.data?.feed ?? [];
   const myPosts = useMemo(() => feed.filter((post) => post.user_id === user?.id), [feed, user?.id]);
+  const currentProfile = dashboardQuery.data?.profile;
+  const totalProfileLikes = myPosts.reduce((sum, post) => sum + post.likeCount, 0);
+  const totalProfileComments = myPosts.reduce((sum, post) => sum + post.comments.length, 0);
 
   const refreshDashboard = () => queryClient.invalidateQueries({ queryKey: ["social-dashboard", user?.id] });
 
@@ -317,6 +355,48 @@ const Dashboard = () => {
     },
     onError: (error: Error) => {
       toast({ title: "No se pudo publicar", description: error.message, variant: "destructive" });
+    },
+  });
+
+  const deletePostMutation = useMutation({
+    mutationFn: async (target: { id: string; imagePath: string | null }) => {
+      const { error } = await supabase.from("posts" as any).delete().eq("id", target.id).eq("user_id", user?.id);
+      if (error) throw error;
+
+      if (target.imagePath) {
+        await supabase.storage.from("post-images").remove([target.imagePath]);
+      }
+
+      await logAction("post_delete", "posts", { postId: target.id });
+    },
+    onSuccess: async () => {
+      toast({ title: "Post eliminado", description: "Tu publicación ya no aparece en el feed." });
+      setDeleteTarget(null);
+      await refreshDashboard();
+    },
+    onError: (error: Error) => {
+      toast({ title: "No se pudo eliminar", description: error.message, variant: "destructive" });
+    },
+  });
+
+  const deleteCommentMutation = useMutation({
+    mutationFn: async (commentId: string) => {
+      const { error } = await supabase
+        .from("post_comments" as any)
+        .delete()
+        .eq("id", commentId)
+        .eq("user_id", user?.id);
+      if (error) throw error;
+
+      await logAction("comment_delete", "post_comments", { commentId });
+    },
+    onSuccess: async () => {
+      toast({ title: "Comentario eliminado", description: "Tu comentario fue eliminado." });
+      setDeleteTarget(null);
+      await refreshDashboard();
+    },
+    onError: (error: Error) => {
+      toast({ title: "No se pudo eliminar", description: error.message, variant: "destructive" });
     },
   });
 
@@ -396,7 +476,138 @@ const Dashboard = () => {
     navigate("/login");
   };
 
-  const currentProfile = dashboardQuery.data?.profile;
+  const renderPostCard = (post: FeedPost, compact = false) => (
+    <Card key={post.id} className="glass border-border">
+      <CardHeader className="space-y-4">
+        <div className="flex items-start gap-3">
+          <Avatar className="h-11 w-11 border border-border">
+            <AvatarImage src={post.author?.avatar_url ?? undefined} alt={getDisplayName(post.author)} />
+            <AvatarFallback className="font-semibold">
+              {getInitials(post.author?.name, post.author?.username)}
+            </AvatarFallback>
+          </Avatar>
+          <div className="min-w-0 flex-1">
+            <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
+              <p className="font-medium text-foreground">{getDisplayName(post.author)}</p>
+              {post.author?.username && <span className="text-sm text-muted-foreground">@{post.author.username}</span>}
+              <span className="text-xs text-muted-foreground">• {getRelativeDate(post.created_at)}</span>
+            </div>
+            {post.content?.trim() && <p className="mt-3 whitespace-pre-wrap text-sm leading-6 text-foreground">{post.content}</p>}
+          </div>
+          {post.user_id === user?.id && (
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={() => setDeleteTarget({ type: "post", id: post.id, imagePath: post.image_path })}
+              aria-label="Eliminar post"
+            >
+              <Trash2 size={16} />
+            </Button>
+          )}
+        </div>
+      </CardHeader>
+
+      <CardContent className="space-y-4">
+        {post.imageUrl && (
+          <div className="overflow-hidden rounded-md border border-border bg-background/60">
+            <img src={post.imageUrl} alt="Imagen del post" className="max-h-[520px] w-full object-cover" loading="lazy" />
+          </div>
+        )}
+
+        <div className="flex flex-wrap items-center gap-2 text-sm text-muted-foreground">
+          <span>{post.likeCount} likes</span>
+          <span>•</span>
+          <span>{post.comments.length} comentarios</span>
+          <span>•</span>
+          <span>{post.repostCount} reposts</span>
+        </div>
+
+        {post.likes.length > 0 && (
+          <div className="space-y-2 rounded-md border border-border bg-background/40 p-3">
+            <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Les gusta a</p>
+            <div className="flex flex-wrap gap-2">
+              {post.likes.slice(0, compact ? 4 : 8).map((like) => (
+                <div key={`${post.id}-${like.user_id}`} className="inline-flex items-center gap-2 rounded-md border border-border px-2 py-1 text-xs text-foreground">
+                  <Avatar className="h-6 w-6 border border-border">
+                    <AvatarImage src={like.author?.avatar_url ?? undefined} alt={getDisplayName(like.author)} />
+                    <AvatarFallback className="text-[10px] font-semibold">
+                      {getInitials(like.author?.name, like.author?.username)}
+                    </AvatarFallback>
+                  </Avatar>
+                  <span>{getDisplayName(like.author)}</span>
+                </div>
+              ))}
+              {post.likes.length > (compact ? 4 : 8) && (
+                <div className="inline-flex items-center rounded-md border border-border px-2 py-1 text-xs text-muted-foreground">
+                  +{post.likes.length - (compact ? 4 : 8)} más
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
+        {!compact && (
+          <>
+            <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
+              <Button
+                variant={post.likedByMe ? "secondary" : "outline"}
+                onClick={() => toggleLikeMutation.mutate(post)}
+                disabled={toggleLikeMutation.isPending}
+                className="border-border"
+              >
+                <Heart size={16} /> Like
+              </Button>
+              <Button
+                variant={post.repostedByMe ? "secondary" : "outline"}
+                onClick={() => toggleRepostMutation.mutate(post)}
+                disabled={toggleRepostMutation.isPending}
+                className="border-border"
+              >
+                <Repeat2 size={16} /> Repost
+              </Button>
+            </div>
+
+            <Separator />
+
+            <div className="space-y-3">
+              <div className="flex gap-2">
+                <Input
+                  value={commentDrafts[post.id] ?? ""}
+                  onChange={(event) => setCommentDrafts((current) => ({ ...current, [post.id]: event.target.value }))}
+                  placeholder="Escribe un comentario"
+                />
+                <Button onClick={() => commentMutation.mutate(post.id)} disabled={commentMutation.isPending} size="icon">
+                  <Send size={16} />
+                </Button>
+              </div>
+
+              <div className="space-y-3">
+                {post.comments.map((comment) => (
+                  <div key={comment.id} className="rounded-md border border-border bg-background/50 p-3">
+                    <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                      <span className="font-medium text-foreground">{getDisplayName(comment.author)}</span>
+                      {comment.author?.username && <span>@{comment.author.username}</span>}
+                      <span>• {getRelativeDate(comment.created_at)}</span>
+                      {comment.user_id === user?.id && (
+                        <button
+                          type="button"
+                          onClick={() => setDeleteTarget({ type: "comment", id: comment.id })}
+                          className="ml-auto inline-flex items-center gap-1 text-muted-foreground transition-colors hover:text-foreground"
+                        >
+                          <Trash2 size={14} />
+                        </button>
+                      )}
+                    </div>
+                    <p className="mt-2 whitespace-pre-wrap text-sm text-foreground">{comment.content}</p>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </>
+        )}
+      </CardContent>
+    </Card>
+  );
 
   return (
     <div className="min-h-screen gradient-bg">
@@ -417,306 +628,287 @@ const Dashboard = () => {
         </div>
       </header>
 
-      <main className="mx-auto grid max-w-6xl gap-6 px-4 py-6 sm:px-6 lg:grid-cols-[320px_minmax(0,1fr)]">
-        <aside className="space-y-6">
-          <Card className="glass border-border">
-            <CardHeader className="space-y-4">
-              <div className="flex items-center gap-4">
-                <Avatar className="h-16 w-16 border border-border">
-                  <AvatarImage src={currentProfile?.avatar_url ?? undefined} alt={getDisplayName(currentProfile, user?.email)} />
-                  <AvatarFallback className="text-base font-semibold">
-                    {getInitials(currentProfile?.name, currentProfile?.username, user?.email)}
-                  </AvatarFallback>
-                </Avatar>
-                <div className="min-w-0 space-y-1">
-                  <h1 className="truncate text-2xl font-semibold text-foreground">
-                    {getDisplayName(currentProfile, user?.email)}
-                  </h1>
-                  <p className="truncate text-sm text-muted-foreground">
-                    {currentProfile?.username ? `@${currentProfile.username}` : maskEmail(user?.email ?? "")}
-                  </p>
+      <main className="mx-auto max-w-6xl px-4 py-6 sm:px-6">
+        <Tabs defaultValue="feed" className="space-y-6">
+          <TabsList className="grid w-full grid-cols-3">
+            <TabsTrigger value="feed">Feed</TabsTrigger>
+            <TabsTrigger value="profile">Perfil</TabsTrigger>
+            <TabsTrigger value="users">Usuarios</TabsTrigger>
+          </TabsList>
+
+          <TabsContent value="feed" className="space-y-6">
+            <Card className="glass border-border">
+              <CardHeader>
+                <CardTitle className="text-xl">Comparte algo</CardTitle>
+                <CardDescription>Texto corto, una foto o ambas.</CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="flex items-start gap-3">
+                  <Avatar className="h-11 w-11 border border-border">
+                    <AvatarFallback className="font-semibold">
+                      {getInitials(currentProfile?.name, currentProfile?.username, user?.email)}
+                    </AvatarFallback>
+                  </Avatar>
+                  <Textarea
+                    value={composerText}
+                    onChange={(event) => setComposerText(event.target.value)}
+                    placeholder="¿Qué estás pensando?"
+                    maxLength={1000}
+                    className="min-h-[120px] resize-none"
+                  />
                 </div>
-              </div>
-              <div className="grid grid-cols-3 gap-2 text-center text-sm">
-                <div className="rounded-md border border-border bg-background/60 px-2 py-3">
-                  <div className="font-semibold text-foreground">{myPosts.length}</div>
-                  <div className="text-xs text-muted-foreground">Posts</div>
-                </div>
-                <div className="rounded-md border border-border bg-background/60 px-2 py-3">
-                  <div className="font-semibold text-foreground">
-                    {feed.reduce((sum, post) => sum + post.likeCount, 0)}
+
+                {composerPreview && (
+                  <div className="relative overflow-hidden rounded-md border border-border bg-background/60">
+                    <img src={composerPreview} alt="Vista previa del post" className="max-h-[420px] w-full object-cover" loading="lazy" />
+                    <Button type="button" variant="secondary" size="icon" className="absolute right-3 top-3" onClick={() => setComposerImage(null)}>
+                      <X size={16} />
+                    </Button>
                   </div>
-                  <div className="text-xs text-muted-foreground">Likes</div>
-                </div>
-                <div className="rounded-md border border-border bg-background/60 px-2 py-3">
-                  <div className="font-semibold text-foreground">
-                    {feed.reduce((sum, post) => sum + post.comments.length, 0)}
-                  </div>
-                  <div className="text-xs text-muted-foreground">Comentarios</div>
-                </div>
-              </div>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="space-y-2">
-                <label className="text-sm font-medium text-foreground">Nombre</label>
-                <Input
-                  value={profileForm.name}
-                  onChange={(event) => setProfileForm((current) => ({ ...current, name: event.target.value }))}
-                  placeholder="Tu nombre"
-                />
-              </div>
-              <div className="space-y-2">
-                <label className="text-sm font-medium text-foreground">Usuario</label>
-                <Input
-                  value={profileForm.username}
-                  onChange={(event) => setProfileForm((current) => ({ ...current, username: event.target.value.replace(/^@/, "") }))}
-                  placeholder="usuario"
-                />
-              </div>
-              <div className="space-y-2">
-                <label className="text-sm font-medium text-foreground">Descripción</label>
-                <Textarea
-                  value={profileForm.bio}
-                  onChange={(event) => setProfileForm((current) => ({ ...current, bio: event.target.value }))}
-                  placeholder="Cuéntale al mundo quién eres"
-                  maxLength={160}
-                  className="min-h-[120px] resize-none"
-                />
-                <p className="text-right text-xs text-muted-foreground">{profileForm.bio.length}/160</p>
-              </div>
-              <Button onClick={() => profileMutation.mutate()} disabled={profileMutation.isPending} className="w-full">
-                {profileMutation.isPending ? <Loader2 className="animate-spin" size={16} /> : <Save size={16} />}
-                Guardar perfil
-              </Button>
-            </CardContent>
-          </Card>
+                )}
 
-          <Card className="glass border-border">
-            <CardHeader>
-              <CardTitle className="text-lg">Tu bio</CardTitle>
-              <CardDescription>Así te verán en el feed.</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <p className="text-sm leading-6 text-muted-foreground">
-                {currentProfile?.bio?.trim() || "Aún no has escrito una descripción de perfil."}
-              </p>
-            </CardContent>
-          </Card>
-        </aside>
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                  <label className="inline-flex cursor-pointer items-center gap-2 text-sm text-muted-foreground">
+                    <input
+                      type="file"
+                      accept="image/*"
+                      className="hidden"
+                      onChange={(event) => setComposerImage(event.target.files?.[0] ?? null)}
+                    />
+                    <span className="inline-flex items-center gap-2 rounded-md border border-border bg-background px-3 py-2 hover:bg-muted">
+                      <ImagePlus size={16} /> Añadir foto
+                    </span>
+                  </label>
 
-        <section className="space-y-6">
-          <Card className="glass border-border">
-            <CardHeader>
-              <CardTitle className="text-xl">Comparte algo</CardTitle>
-              <CardDescription>Texto corto, una foto o ambas.</CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="flex items-start gap-3">
-                <Avatar className="h-11 w-11 border border-border">
-                  <AvatarFallback className="font-semibold">
-                    {getInitials(currentProfile?.name, currentProfile?.username, user?.email)}
-                  </AvatarFallback>
-                </Avatar>
-                <Textarea
-                  value={composerText}
-                  onChange={(event) => setComposerText(event.target.value)}
-                  placeholder="¿Qué estás pensando?"
-                  maxLength={1000}
-                  className="min-h-[120px] resize-none"
-                />
-              </div>
-
-              {composerPreview && (
-                <div className="relative overflow-hidden rounded-md border border-border bg-background/60">
-                  <img src={composerPreview} alt="Vista previa del post" className="max-h-[420px] w-full object-cover" loading="lazy" />
-                  <Button
-                    type="button"
-                    variant="secondary"
-                    size="icon"
-                    className="absolute right-3 top-3"
-                    onClick={() => setComposerImage(null)}
-                  >
-                    <X size={16} />
+                  <Button onClick={() => createPostMutation.mutate()} disabled={createPostMutation.isPending}>
+                    {createPostMutation.isPending ? <Loader2 className="animate-spin" size={16} /> : <Send size={16} />}
+                    Publicar
                   </Button>
                 </div>
-              )}
+              </CardContent>
+            </Card>
 
-              <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                <label className="inline-flex cursor-pointer items-center gap-2 text-sm text-muted-foreground">
-                  <input
-                    type="file"
-                    accept="image/*"
-                    className="hidden"
-                    onChange={(event) => setComposerImage(event.target.files?.[0] ?? null)}
-                  />
-                  <span className="inline-flex items-center gap-2 rounded-md border border-border bg-background px-3 py-2 hover:bg-muted">
-                    <ImagePlus size={16} /> Añadir foto
-                  </span>
-                </label>
+            {dashboardQuery.isLoading && (
+              <>
+                <Skeleton className="h-40 w-full rounded-lg" />
+                <Skeleton className="h-56 w-full rounded-lg" />
+              </>
+            )}
 
-                <Button onClick={() => createPostMutation.mutate()} disabled={createPostMutation.isPending}>
-                  {createPostMutation.isPending ? <Loader2 className="animate-spin" size={16} /> : <Send size={16} />}
-                  Publicar
-                </Button>
-              </div>
-            </CardContent>
-          </Card>
+            {!dashboardQuery.isLoading && feed.length === 0 && (
+              <Card className="glass border-border">
+                <CardContent className="flex flex-col items-center gap-3 py-12 text-center">
+                  <UserRound size={28} className="text-muted-foreground" />
+                  <div>
+                    <h1 className="text-lg font-semibold text-foreground">Aún no hay posts</h1>
+                    <p className="text-sm text-muted-foreground">Sé la primera persona en publicar algo.</p>
+                  </div>
+                </CardContent>
+              </Card>
+            )}
 
-          <Tabs defaultValue="feed" className="space-y-4">
-            <TabsList className="grid w-full grid-cols-2">
-              <TabsTrigger value="feed">Feed</TabsTrigger>
-              <TabsTrigger value="mine">Mis posts</TabsTrigger>
-            </TabsList>
+            {feed.map((post) => renderPostCard(post))}
+          </TabsContent>
 
-            <TabsContent value="feed" className="space-y-4">
-              {dashboardQuery.isLoading && (
-                <>
-                  <Skeleton className="h-40 w-full rounded-lg" />
-                  <Skeleton className="h-56 w-full rounded-lg" />
-                </>
-              )}
-
-              {!dashboardQuery.isLoading && feed.length === 0 && (
+          <TabsContent value="profile" className="space-y-6">
+            <div className="grid gap-6 lg:grid-cols-[320px_minmax(0,1fr)]">
+              <section className="space-y-6">
                 <Card className="glass border-border">
-                  <CardContent className="flex flex-col items-center gap-3 py-12 text-center">
-                    <UserRound size={28} className="text-muted-foreground" />
-                    <div>
-                      <h2 className="text-lg font-semibold text-foreground">Aún no hay posts</h2>
-                      <p className="text-sm text-muted-foreground">Sé la primera persona en publicar algo.</p>
-                    </div>
-                  </CardContent>
-                </Card>
-              )}
-
-              {feed.map((post) => (
-                <Card key={post.id} className="glass border-border">
                   <CardHeader className="space-y-4">
-                    <div className="flex items-start gap-3">
-                      <Avatar className="h-11 w-11 border border-border">
-                        <AvatarImage src={post.author?.avatar_url ?? undefined} alt={getDisplayName(post.author)} />
-                        <AvatarFallback className="font-semibold">
-                          {getInitials(post.author?.name, post.author?.username)}
+                    <div className="flex items-center gap-4">
+                      <Avatar className="h-16 w-16 border border-border">
+                        <AvatarImage src={currentProfile?.avatar_url ?? undefined} alt={getDisplayName(currentProfile, user?.email)} />
+                        <AvatarFallback className="text-base font-semibold">
+                          {getInitials(currentProfile?.name, currentProfile?.username, user?.email)}
                         </AvatarFallback>
                       </Avatar>
-                      <div className="min-w-0 flex-1">
-                        <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
-                          <p className="font-medium text-foreground">{getDisplayName(post.author)}</p>
-                          {post.author?.username && (
-                            <span className="text-sm text-muted-foreground">@{post.author.username}</span>
-                          )}
-                          <span className="text-xs text-muted-foreground">• {getRelativeDate(post.created_at)}</span>
-                        </div>
-                        {post.content?.trim() && <p className="mt-3 whitespace-pre-wrap text-sm leading-6 text-foreground">{post.content}</p>}
+                      <div className="min-w-0 space-y-1">
+                        <h1 className="truncate text-2xl font-semibold text-foreground">{getDisplayName(currentProfile, user?.email)}</h1>
+                        <p className="truncate text-sm text-muted-foreground">
+                          {currentProfile?.username ? `@${currentProfile.username}` : maskEmail(user?.email ?? "")}
+                        </p>
+                      </div>
+                    </div>
+                    <div className="grid grid-cols-3 gap-2 text-center text-sm">
+                      <div className="rounded-md border border-border bg-background/60 px-2 py-3">
+                        <div className="font-semibold text-foreground">{myPosts.length}</div>
+                        <div className="text-xs text-muted-foreground">Posts</div>
+                      </div>
+                      <div className="rounded-md border border-border bg-background/60 px-2 py-3">
+                        <div className="font-semibold text-foreground">{totalProfileLikes}</div>
+                        <div className="text-xs text-muted-foreground">Likes</div>
+                      </div>
+                      <div className="rounded-md border border-border bg-background/60 px-2 py-3">
+                        <div className="font-semibold text-foreground">{totalProfileComments}</div>
+                        <div className="text-xs text-muted-foreground">Comentarios</div>
                       </div>
                     </div>
                   </CardHeader>
-
-                  <CardContent className="space-y-4">
-                    {post.imageUrl && (
-                      <div className="overflow-hidden rounded-md border border-border bg-background/60">
-                        <img src={post.imageUrl} alt="Imagen del post" className="max-h-[520px] w-full object-cover" loading="lazy" />
-                      </div>
-                    )}
-
-                    <div className="flex flex-wrap items-center gap-2 text-sm text-muted-foreground">
-                      <span>{post.likeCount} likes</span>
-                      <span>•</span>
-                      <span>{post.comments.length} comentarios</span>
-                      <span>•</span>
-                      <span>{post.repostCount} reposts</span>
-                    </div>
-
-                    <div className="grid grid-cols-3 gap-2">
-                      <Button
-                        variant={post.likedByMe ? "secondary" : "outline"}
-                        onClick={() => toggleLikeMutation.mutate(post)}
-                        disabled={toggleLikeMutation.isPending}
-                        className="border-border"
-                      >
-                        <Heart size={16} /> Like
-                      </Button>
-                      <Button variant="outline" className="border-border" disabled>
-                        <MessageCircle size={16} /> Comentar
-                      </Button>
-                      <Button
-                        variant={post.repostedByMe ? "secondary" : "outline"}
-                        onClick={() => toggleRepostMutation.mutate(post)}
-                        disabled={toggleRepostMutation.isPending}
-                        className="border-border"
-                      >
-                        <Repeat2 size={16} /> Repost
-                      </Button>
-                    </div>
-
-                    <Separator />
-
-                    <div className="space-y-3">
-                      <div className="flex gap-2">
-                        <Input
-                          value={commentDrafts[post.id] ?? ""}
-                          onChange={(event) =>
-                            setCommentDrafts((current) => ({ ...current, [post.id]: event.target.value }))
-                          }
-                          placeholder="Escribe un comentario"
-                        />
-                        <Button
-                          onClick={() => commentMutation.mutate(post.id)}
-                          disabled={commentMutation.isPending}
-                          size="icon"
-                        >
-                          <Send size={16} />
-                        </Button>
-                      </div>
-
-                      <div className="space-y-3">
-                        {post.comments.map((comment) => (
-                          <div key={comment.id} className="rounded-md border border-border bg-background/50 p-3">
-                            <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                              <span className="font-medium text-foreground">{getDisplayName(comment.author)}</span>
-                              {comment.author?.username && <span>@{comment.author.username}</span>}
-                              <span>• {getRelativeDate(comment.created_at)}</span>
-                            </div>
-                            <p className="mt-2 whitespace-pre-wrap text-sm text-foreground">{comment.content}</p>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  </CardContent>
                 </Card>
-              ))}
-            </TabsContent>
 
-            <TabsContent value="mine" className="space-y-4">
-              {myPosts.length === 0 ? (
                 <Card className="glass border-border">
-                  <CardContent className="py-12 text-center text-sm text-muted-foreground">
-                    Todavía no has publicado nada.
+                  <CardHeader>
+                    <CardTitle className="text-lg">Editar perfil</CardTitle>
+                    <CardDescription>Este apartado es independiente del feed.</CardDescription>
+                  </CardHeader>
+                  <CardContent className="space-y-4">
+                    <div className="space-y-2">
+                      <label className="text-sm font-medium text-foreground">Nombre</label>
+                      <Input
+                        value={profileForm.name}
+                        onChange={(event) => setProfileForm((current) => ({ ...current, name: event.target.value }))}
+                        placeholder="Tu nombre"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <label className="text-sm font-medium text-foreground">Usuario</label>
+                      <Input
+                        value={profileForm.username}
+                        onChange={(event) => setProfileForm((current) => ({ ...current, username: event.target.value.replace(/^@/, "") }))}
+                        placeholder="usuario"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <label className="text-sm font-medium text-foreground">Descripción</label>
+                      <Textarea
+                        value={profileForm.bio}
+                        onChange={(event) => setProfileForm((current) => ({ ...current, bio: event.target.value }))}
+                        placeholder="Cuéntale al mundo quién eres"
+                        maxLength={160}
+                        className="min-h-[120px] resize-none"
+                      />
+                      <p className="text-right text-xs text-muted-foreground">{profileForm.bio.length}/160</p>
+                    </div>
+                    <Button onClick={() => profileMutation.mutate()} disabled={profileMutation.isPending} className="w-full">
+                      {profileMutation.isPending ? <Loader2 className="animate-spin" size={16} /> : <Save size={16} />}
+                      Guardar perfil
+                    </Button>
                   </CardContent>
                 </Card>
-              ) : (
-                myPosts.map((post) => (
-                  <Card key={post.id} className="glass border-border">
-                    <CardContent className="space-y-3 py-6">
-                      <div className="flex items-center justify-between gap-3">
-                        <p className="text-sm font-medium text-foreground">{getRelativeDate(post.created_at)}</p>
-                        <div className="text-xs text-muted-foreground">
-                          {post.likeCount} likes · {post.comments.length} comentarios · {post.repostCount} reposts
-                        </div>
-                      </div>
-                      {post.content?.trim() && <p className="whitespace-pre-wrap text-sm leading-6 text-foreground">{post.content}</p>}
-                      {post.imageUrl && (
-                        <div className="overflow-hidden rounded-md border border-border bg-background/60">
-                          <img src={post.imageUrl} alt="Imagen del post" className="max-h-[460px] w-full object-cover" loading="lazy" />
-                        </div>
-                      )}
-                    </CardContent>
-                  </Card>
-                ))
-              )}
-            </TabsContent>
-          </Tabs>
-        </section>
+              </section>
+
+              <section className="space-y-6">
+                <Card className="glass border-border">
+                  <CardHeader>
+                    <CardTitle className="text-lg">Tu bio</CardTitle>
+                    <CardDescription>Así te verán otras personas.</CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    <p className="text-sm leading-6 text-muted-foreground">
+                      {currentProfile?.bio?.trim() || "Aún no has escrito una descripción de perfil."}
+                    </p>
+                  </CardContent>
+                </Card>
+
+                <section className="space-y-4">
+                  <div className="flex items-center justify-between gap-3">
+                    <h2 className="text-lg font-semibold text-foreground">Tus posts</h2>
+                    <div className="text-xs text-muted-foreground">{myPosts.length} publicaciones</div>
+                  </div>
+                  {myPosts.length === 0 ? (
+                    <Card className="glass border-border">
+                      <CardContent className="py-12 text-center text-sm text-muted-foreground">
+                        Todavía no has publicado nada.
+                      </CardContent>
+                    </Card>
+                  ) : (
+                    myPosts.map((post) => renderPostCard(post, true))
+                  )}
+                </section>
+              </section>
+            </div>
+          </TabsContent>
+
+          <TabsContent value="users" className="space-y-6">
+            <Card className="glass border-border">
+              <CardHeader>
+                <CardTitle className="text-xl">Buscar usuarios</CardTitle>
+                <CardDescription>Busca por nombre o usuario.</CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="relative">
+                  <Search className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" size={16} />
+                  <Input value={userSearch} onChange={(event) => setUserSearch(event.target.value)} placeholder="Ej. maria o @maria" className="pl-9" />
+                </div>
+
+                {userSearch.trim().length < 2 ? (
+                  <div className="rounded-md border border-dashed border-border px-4 py-8 text-center text-sm text-muted-foreground">
+                    Escribe al menos 2 caracteres para buscar.
+                  </div>
+                ) : userSearchQuery.isLoading ? (
+                  <>
+                    <Skeleton className="h-24 w-full rounded-lg" />
+                    <Skeleton className="h-24 w-full rounded-lg" />
+                  </>
+                ) : (userSearchQuery.data?.length ?? 0) === 0 ? (
+                  <div className="rounded-md border border-dashed border-border px-4 py-8 text-center text-sm text-muted-foreground">
+                    No encontramos usuarios con ese texto.
+                  </div>
+                ) : (
+                  <div className="grid gap-4">
+                    {userSearchQuery.data?.map((profile) => (
+                      <Card key={profile.id} className="border-border bg-background/40">
+                        <CardContent className="flex items-start gap-3 py-4">
+                          <Avatar className="h-12 w-12 border border-border">
+                            <AvatarImage src={profile.avatar_url ?? undefined} alt={getDisplayName(profile)} />
+                            <AvatarFallback className="font-semibold">{getInitials(profile.name, profile.username)}</AvatarFallback>
+                          </Avatar>
+                          <div className="min-w-0 flex-1 space-y-1">
+                            <div className="flex flex-wrap items-center gap-2">
+                              <p className="font-medium text-foreground">{getDisplayName(profile)}</p>
+                              {profile.username && <span className="text-sm text-muted-foreground">@{profile.username}</span>}
+                            </div>
+                            <p className="text-sm leading-6 text-muted-foreground">
+                              {profile.bio?.trim() || "Este usuario todavía no agregó descripción."}
+                            </p>
+                          </div>
+                          <Users size={18} className="text-muted-foreground" />
+                        </CardContent>
+                      </Card>
+                    ))}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          </TabsContent>
+        </Tabs>
       </main>
+
+      <AlertDialog open={!!deleteTarget} onOpenChange={(open) => !open && setDeleteTarget(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>
+              {deleteTarget?.type === "post" ? "Eliminar post" : "Eliminar comentario"}
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              {deleteTarget?.type === "post"
+                ? "Esta acción quitará la publicación del feed y no se puede deshacer."
+                : "Esta acción quitará el comentario y no se puede deshacer."}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={(event) => {
+                event.preventDefault();
+                if (!deleteTarget) return;
+                if (deleteTarget.type === "post") {
+                  deletePostMutation.mutate({ id: deleteTarget.id, imagePath: deleteTarget.imagePath });
+                  return;
+                }
+                deleteCommentMutation.mutate(deleteTarget.id);
+              }}
+              disabled={deletePostMutation.isPending || deleteCommentMutation.isPending}
+            >
+              {(deletePostMutation.isPending || deleteCommentMutation.isPending) ? (
+                <Loader2 className="animate-spin" size={16} />
+              ) : (
+                "Eliminar"
+              )}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 };
