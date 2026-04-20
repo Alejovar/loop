@@ -137,7 +137,7 @@ const Dashboard = () => {
 
       if (postsError) throw postsError;
 
-      const posts = ((postsData ?? []) as PostRow[]);
+      const posts = (postsData ?? []) as unknown as PostRow[];
       const postIds = posts.map((post) => post.id);
 
       const [commentsRes, likesRes, repostsRes] = await Promise.all([
@@ -179,7 +179,7 @@ const Dashboard = () => {
 
       if (profilesError) throw profilesError;
 
-      const profiles = (profilesData ?? []) as ProfileRow[];
+      const profiles = (profilesData ?? []) as unknown as ProfileRow[];
       const profileMap = new Map(profiles.map((profile) => [profile.id, profile]));
 
       const imagePaths = posts.map((post) => post.image_path).filter(Boolean) as string[];
@@ -226,7 +226,7 @@ const Dashboard = () => {
       });
 
       return {
-        profile: (profileData as ProfileRow | null) ?? profileMap.get(user.id) ?? null,
+        profile: ((profileData as unknown as ProfileRow | null) ?? profileMap.get(user.id) ?? null),
         feed,
       };
     },
