@@ -169,6 +169,27 @@ const UserManagement = () => {
     }
   };
 
+  const handleToggleVerified = async (userId: string, verified: boolean) => {
+    try {
+      const { data, error } = await supabase.functions.invoke("admin-users", {
+        body: { action: "toggle_verified", target_user_id: userId, verified },
+      });
+      if (error) throw error;
+      if (data.error) throw new Error(data.error);
+
+      toast({
+        title: verified ? "Usuario verificado" : "Verificación retirada",
+      });
+      queryClient.invalidateQueries({ queryKey: ["admin-users"] });
+    } catch (err: any) {
+      toast({
+        title: "Error",
+        description: err.message,
+        variant: "destructive",
+      });
+    }
+  };
+
   const handleGenerateLink = async (userId: string, email: string) => {
     try {
       const { data, error } = await supabase.functions.invoke("admin-users", {

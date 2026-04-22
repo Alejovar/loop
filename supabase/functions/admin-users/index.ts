@@ -63,6 +63,10 @@ Deno.serve(async (req) => {
           .from("user_roles")
           .select("*");
 
+        const { data: profiles } = await adminClient
+          .from("profiles")
+          .select("id, verified");
+
         const usersWithRoles = users.map((u) => ({
           id: u.id,
           email: u.email,
@@ -71,6 +75,7 @@ Deno.serve(async (req) => {
           email_confirmed_at: u.email_confirmed_at,
           banned_until: u.banned_until,
           user_metadata: u.user_metadata,
+          verified: profiles?.find((p) => p.id === u.id)?.verified ?? false,
           roles:
             roles
               ?.filter((r) => r.user_id === u.id)
