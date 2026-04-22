@@ -352,7 +352,12 @@ const UserManagement = () => {
                 <TableRow key={u.id} className="border-border">
                   <TableCell>
                     <div>
-                      <p className="text-foreground text-sm">{u.email}</p>
+                      <div className="flex items-center gap-1.5">
+                        <p className="text-foreground text-sm">{u.email}</p>
+                        {u.verified && (
+                          <BadgeCheck size={14} className="text-primary" aria-label="Verificado" />
+                        )}
+                      </div>
                       {u.user_metadata?.name && (
                         <p className="text-xs text-muted-foreground">
                           {u.user_metadata.name}
@@ -415,6 +420,15 @@ const UserManagement = () => {
                   <TableCell className="text-right">
                     {u.id !== currentUser?.id && (
                       <div className="flex items-center justify-end gap-1">
+                        <Button
+                          variant={u.verified ? "default" : "outline"}
+                          size="sm"
+                          onClick={() => handleToggleVerified(u.id, !u.verified)}
+                          className="h-7 text-xs border-border"
+                          title={u.verified ? "Quitar verificación" : "Verificar usuario"}
+                        >
+                          <BadgeCheck size={13} />
+                        </Button>
                         <Button
                           variant="outline"
                           size="sm"
