@@ -172,6 +172,26 @@ Deno.serve(async (req) => {
         return json({ success: true });
       }
 
+      case "toggle_verified": {
+        const { target_user_id, verified } = body;
+        if (!target_user_id) throw new Error("target_user_id required");
+
+        await adminClient
+          .from("profiles")
+          .update({ verified: !!verified })
+          .eq("id", target_user_id);
+
+        await adminClient.from("audit_logs").insert({
+          user_id: user.id,
+          user_email: user.email,
+          action: verified ? "verify_user" : "unverify_user",
+          resource: "profiles",
+          details: { target_user_id, verified: !!verified },
+        });
+
+        return json({ success: true });
+      }
+
       case "generate_token": {
         const { target_email } = body;
         if (!target_email) throw new Error("target_email required");

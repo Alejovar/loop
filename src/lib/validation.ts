@@ -63,6 +63,10 @@ export const commentSchema = z.object({
   content: z.string().trim().min(1, "Escribe un comentario").max(500, "Máximo 500 caracteres"),
 });
 
+export const repostSchema = z.object({
+  comment: z.string().trim().max(500, "Máximo 500 caracteres").optional().or(z.literal("")),
+});
+
 export type LoginInput = z.infer<typeof loginSchema>;
 export type RegisterInput = z.infer<typeof registerSchema>;
 export type ProfileInput = z.infer<typeof profileSchema>;
