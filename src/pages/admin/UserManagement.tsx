@@ -40,6 +40,7 @@ import {
   CheckCircle,
   Link2,
   Search,
+  BadgeCheck,
 } from "lucide-react";
 import { QRCodeSVG } from "qrcode.react";
 
@@ -52,6 +53,7 @@ interface AdminUser {
   banned_until: string | null;
   user_metadata: any;
   roles: string[];
+  verified?: boolean;
 }
 
 const UserManagement = () => {
