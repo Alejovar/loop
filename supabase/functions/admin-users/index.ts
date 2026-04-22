@@ -63,6 +63,10 @@ Deno.serve(async (req) => {
           .from("user_roles")
           .select("*");
 
+        const { data: profiles } = await adminClient
+          .from("profiles")
+          .select("id, verified");
+
         const usersWithRoles = users.map((u) => ({
           id: u.id,
           email: u.email,
@@ -71,6 +75,7 @@ Deno.serve(async (req) => {
           email_confirmed_at: u.email_confirmed_at,
           banned_until: u.banned_until,
           user_metadata: u.user_metadata,
+          verified: profiles?.find((p) => p.id === u.id)?.verified ?? false,
           roles:
             roles
               ?.filter((r) => r.user_id === u.id)
@@ -167,6 +172,26 @@ Deno.serve(async (req) => {
           action: ban ? "ban_user" : "unban_user",
           resource: "users",
           details: { target_user_id },
+        });
+
+        return json({ success: true });
+      }
+
+      case "toggle_verified": {
+        const { target_user_id, verified } = body;
+        if (!target_user_id) throw new Error("target_user_id required");
+
+        await adminClient
+          .from("profiles")
+          .update({ verified: !!verified })
+          .eq("id", target_user_id);
+
+        await adminClient.from("audit_logs").insert({
+          user_id: user.id,
+          user_email: user.email,
+          action: verified ? "verify_user" : "unverify_user",
+          resource: "profiles",
+          details: { target_user_id, verified: !!verified },
         });
 
         return json({ success: true });

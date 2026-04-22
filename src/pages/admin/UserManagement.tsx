@@ -40,6 +40,7 @@ import {
   CheckCircle,
   Link2,
   Search,
+  BadgeCheck,
 } from "lucide-react";
 import { QRCodeSVG } from "qrcode.react";
 
@@ -52,6 +53,7 @@ interface AdminUser {
   banned_until: string | null;
   user_metadata: any;
   roles: string[];
+  verified?: boolean;
 }
 
 const UserManagement = () => {
@@ -156,6 +158,27 @@ const UserManagement = () => {
 
       toast({
         title: ban ? "Usuario bloqueado" : "Usuario desbloqueado",
+      });
+      queryClient.invalidateQueries({ queryKey: ["admin-users"] });
+    } catch (err: any) {
+      toast({
+        title: "Error",
+        description: err.message,
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleToggleVerified = async (userId: string, verified: boolean) => {
+    try {
+      const { data, error } = await supabase.functions.invoke("admin-users", {
+        body: { action: "toggle_verified", target_user_id: userId, verified },
+      });
+      if (error) throw error;
+      if (data.error) throw new Error(data.error);
+
+      toast({
+        title: verified ? "Usuario verificado" : "Verificación retirada",
       });
       queryClient.invalidateQueries({ queryKey: ["admin-users"] });
     } catch (err: any) {
@@ -329,7 +352,12 @@ const UserManagement = () => {
                 <TableRow key={u.id} className="border-border">
                   <TableCell>
                     <div>
-                      <p className="text-foreground text-sm">{u.email}</p>
+                      <div className="flex items-center gap-1.5">
+                        <p className="text-foreground text-sm">{u.email}</p>
+                        {u.verified && (
+                          <BadgeCheck size={14} className="text-primary" aria-label="Verificado" />
+                        )}
+                      </div>
                       {u.user_metadata?.name && (
                         <p className="text-xs text-muted-foreground">
                           {u.user_metadata.name}
@@ -392,6 +420,15 @@ const UserManagement = () => {
                   <TableCell className="text-right">
                     {u.id !== currentUser?.id && (
                       <div className="flex items-center justify-end gap-1">
+                        <Button
+                          variant={u.verified ? "default" : "outline"}
+                          size="sm"
+                          onClick={() => handleToggleVerified(u.id, !u.verified)}
+                          className="h-7 text-xs border-border"
+                          title={u.verified ? "Quitar verificación" : "Verificar usuario"}
+                        >
+                          <BadgeCheck size={13} />
+                        </Button>
                         <Button
                           variant="outline"
                           size="sm"

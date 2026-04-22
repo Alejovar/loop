@@ -188,6 +188,7 @@ export type Database = {
           created_at: string
           id: string
           image_path: string | null
+          repost_comment: string | null
           repost_of_post_id: string | null
           updated_at: string
           user_id: string
@@ -197,6 +198,7 @@ export type Database = {
           created_at?: string
           id?: string
           image_path?: string | null
+          repost_comment?: string | null
           repost_of_post_id?: string | null
           updated_at?: string
           user_id: string
@@ -206,6 +208,7 @@ export type Database = {
           created_at?: string
           id?: string
           image_path?: string | null
+          repost_comment?: string | null
           repost_of_post_id?: string | null
           updated_at?: string
           user_id?: string
@@ -238,6 +241,7 @@ export type Database = {
           name: string | null
           updated_at: string
           username: string | null
+          verified: boolean
         }
         Insert: {
           avatar_url?: string | null
@@ -249,6 +253,7 @@ export type Database = {
           name?: string | null
           updated_at?: string
           username?: string | null
+          verified?: boolean
         }
         Update: {
           avatar_url?: string | null
@@ -260,6 +265,7 @@ export type Database = {
           name?: string | null
           updated_at?: string
           username?: string | null
+          verified?: boolean
         }
         Relationships: []
       }
