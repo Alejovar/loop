@@ -24,7 +24,6 @@ import {
   Trash2,
   User as UserIcon,
   UserRound,
-  Users,
   X,
 } from "lucide-react";
 
@@ -45,9 +44,18 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import { AspectRatio } from "@/components/ui/aspect-ratio";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  Carousel,
+  CarouselContent,
+  CarouselItem,
+  CarouselNext,
+  CarouselPrevious,
+  type CarouselApi,
+} from "@/components/ui/carousel";
 import {
   Dialog,
   DialogContent,
@@ -60,19 +68,47 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
-  DropdownMenuLabel,
-  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
+import {
+  Sheet,
+  SheetContent,
+  SheetDescription,
+  SheetHeader,
+  SheetTitle,
+  SheetTrigger,
+} from "@/components/ui/sheet";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
 
 type SectionKey = "feed" | "search" | "profile";
+
+type AspectKey = "original" | "square" | "portrait" | "landscape";
+
+const ASPECT_OPTIONS: { key: AspectKey; label: string; ratio: number | null }[] = [
+  { key: "original", label: "Original", ratio: null },
+  { key: "square", label: "1:1", ratio: 1 },
+  { key: "portrait", label: "4:5", ratio: 4 / 5 },
+  { key: "landscape", label: "16:9", ratio: 16 / 9 },
+];
+
+const aspectClass = (ratio: string | null | undefined) => {
+  switch (ratio) {
+    case "square":
+      return "aspect-square";
+    case "portrait":
+      return "aspect-[4/5]";
+    case "landscape":
+      return "aspect-[16/9]";
+    default:
+      return "";
+  }
+};
 
 type ProfileRow = {
   id: string;
@@ -93,6 +129,14 @@ type PostRow = {
   created_at: string;
 };
 
+type PostImageRow = {
+  id: string;
+  post_id: string;
+  image_path: string;
+  position: number;
+  aspect_ratio: string;
+};
+
 type CommentRow = {
   id: string;
   post_id: string;
@@ -101,23 +145,13 @@ type CommentRow = {
   created_at: string;
 };
 
-type LikeRow = {
-  post_id: string;
-  user_id: string;
-};
+type LikeRow = { post_id: string; user_id: string };
+type RepostRow = { post_id: string; user_id: string };
 
-type RepostRow = {
-  post_id: string;
-  user_id: string;
-};
+type FeedComment = CommentRow & { author?: ProfileRow };
+type FeedLike = LikeRow & { author?: ProfileRow };
 
-type FeedComment = CommentRow & {
-  author?: ProfileRow;
-};
-
-type FeedLike = LikeRow & {
-  author?: ProfileRow;
-};
+type FeedImage = { url: string; aspect: string };
 
 type FeedPost = PostRow & {
   author?: ProfileRow;
@@ -127,17 +161,19 @@ type FeedPost = PostRow & {
   repostCount: number;
   likedByMe: boolean;
   repostedByMe: boolean;
-  imageUrl: string | null;
+  images: FeedImage[];
   originalPost?: FeedPost | null;
 };
 
 type DeleteTarget =
-  | { type: "post"; id: string; imagePath: string | null }
+  | { type: "post"; id: string; imagePath: string | null; extraImagePaths: string[] }
   | { type: "comment"; id: string };
 
 type EditTarget =
   | { type: "post"; id: string; content: string }
   | { type: "comment"; id: string; content: string };
+
+type ComposerImage = { file: File; previewUrl: string };
 
 const getInitials = (name?: string | null, username?: string | null, email?: string | null) => {
   const source = name || username || email || "U";
@@ -176,6 +212,84 @@ const NameWithBadge = ({
   </span>
 );
 
+const PostImageDisplay = ({ images }: { images: FeedImage[] }) => {
+  const [api, setApi] = useState<CarouselApi>();
+  const [current, setCurrent] = useState(0);
+  const [count, setCount] = useState(images.length);
+
+  useEffect(() => {
+    if (!api) return;
+    setCount(api.scrollSnapList().length);
+    setCurrent(api.selectedScrollSnap());
+    const onSelect = () => setCurrent(api.selectedScrollSnap());
+    api.on("select", onSelect);
+    api.on("reInit", onSelect);
+    return () => {
+      api.off("select", onSelect);
+    };
+  }, [api]);
+
+  if (images.length === 0) return null;
+
+  if (images.length === 1) {
+    const img = images[0];
+    const ratioClass = aspectClass(img.aspect);
+    return (
+      <div className={cn("overflow-hidden rounded-md border border-border bg-background/60", ratioClass)}>
+        <img
+          src={img.url}
+          alt="Imagen del post"
+          className={cn("w-full", ratioClass ? "h-full object-cover" : "max-h-[520px] object-cover")}
+          loading="lazy"
+        />
+      </div>
+    );
+  }
+
+  return (
+    <div className="relative">
+      <Carousel setApi={setApi} className="w-full">
+        <CarouselContent>
+          {images.map((img, idx) => {
+            const ratioClass = aspectClass(img.aspect);
+            return (
+              <CarouselItem key={idx}>
+                <div className={cn("overflow-hidden rounded-md border border-border bg-background/60", ratioClass)}>
+                  <img
+                    src={img.url}
+                    alt={`Imagen ${idx + 1}`}
+                    className={cn("w-full", ratioClass ? "h-full object-cover" : "max-h-[520px] object-cover")}
+                    loading="lazy"
+                  />
+                </div>
+              </CarouselItem>
+            );
+          })}
+        </CarouselContent>
+        <CarouselPrevious className="left-2" />
+        <CarouselNext className="right-2" />
+      </Carousel>
+      <div className="absolute right-3 top-3 rounded-full bg-background/80 px-2 py-0.5 text-xs font-medium text-foreground">
+        {current + 1}/{count}
+      </div>
+      <div className="mt-2 flex items-center justify-center gap-1.5">
+        {images.map((_, idx) => (
+          <button
+            key={idx}
+            type="button"
+            onClick={() => api?.scrollTo(idx)}
+            className={cn(
+              "h-1.5 w-1.5 rounded-full transition-colors",
+              idx === current ? "bg-primary" : "bg-muted-foreground/40",
+            )}
+            aria-label={`Ir a imagen ${idx + 1}`}
+          />
+        ))}
+      </div>
+    </div>
+  );
+};
+
 const Dashboard = () => {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
@@ -183,10 +297,11 @@ const Dashboard = () => {
   const { isAdmin } = useRole();
 
   const [activeSection, setActiveSection] = useState<SectionKey>("feed");
+  const [navOpen, setNavOpen] = useState(false);
   const [profileForm, setProfileForm] = useState({ name: "", username: "", bio: "" });
   const [composerText, setComposerText] = useState("");
-  const [composerImage, setComposerImage] = useState<File | null>(null);
-  const [composerPreview, setComposerPreview] = useState<string | null>(null);
+  const [composerImages, setComposerImages] = useState<ComposerImage[]>([]);
+  const [composerAspect, setComposerAspect] = useState<AspectKey>("original");
   const [commentDrafts, setCommentDrafts] = useState<Record<string, string>>({});
   const [globalSearch, setGlobalSearch] = useState("");
   const [searchFilter, setSearchFilter] = useState<"all" | "users" | "posts">("all");
@@ -223,7 +338,6 @@ const Dashboard = () => {
 
       const posts = (postsData ?? []) as unknown as PostRow[];
 
-      // Fetch original posts referenced by reposts (if not already in feed)
       const originalIds = Array.from(
         new Set(
           posts
@@ -243,7 +357,7 @@ const Dashboard = () => {
       const allPosts = [...posts, ...originalPosts];
       const allPostIds = allPosts.map((p) => p.id);
 
-      const [commentsRes, likesRes, repostsRes] = await Promise.all([
+      const [commentsRes, likesRes, repostsRes, imagesRes] = await Promise.all([
         allPostIds.length
           ? supabase
               .from("post_comments" as any)
@@ -257,6 +371,13 @@ const Dashboard = () => {
         allPostIds.length
           ? supabase.from("post_reposts" as any).select("post_id, user_id").in("post_id", allPostIds)
           : Promise.resolve({ data: [], error: null }),
+        allPostIds.length
+          ? supabase
+              .from("post_images" as any)
+              .select("id, post_id, image_path, position, aspect_ratio")
+              .in("post_id", allPostIds)
+              .order("position", { ascending: true })
+          : Promise.resolve({ data: [], error: null }),
       ]);
 
       if (commentsRes.error) throw commentsRes.error;
@@ -266,6 +387,7 @@ const Dashboard = () => {
       const comments = (commentsRes.data ?? []) as CommentRow[];
       const likes = (likesRes.data ?? []) as LikeRow[];
       const reposts = (repostsRes.data ?? []) as RepostRow[];
+      const extraImages = (imagesRes.data ?? []) as PostImageRow[];
 
       const profileIds = Array.from(
         new Set([
@@ -286,14 +408,27 @@ const Dashboard = () => {
       const profiles = (profilesData ?? []) as unknown as ProfileRow[];
       const profileMap = new Map(profiles.map((profile) => [profile.id, profile]));
 
-      const imagePaths = allPosts.map((post) => post.image_path).filter(Boolean) as string[];
+      // All image paths to sign: legacy `image_path` + new `post_images` rows
+      const allPaths = new Set<string>();
+      allPosts.forEach((p) => {
+        if (p.image_path) allPaths.add(p.image_path);
+      });
+      extraImages.forEach((img) => allPaths.add(img.image_path));
+
       const imageEntries = await Promise.all(
-        imagePaths.map(async (path) => {
+        Array.from(allPaths).map(async (path) => {
           const { data } = await supabase.storage.from("post-images").createSignedUrl(path, 60 * 60);
           return [path, data?.signedUrl ?? null] as const;
         }),
       );
-      const imageMap = new Map(imageEntries);
+      const signedMap = new Map(imageEntries);
+
+      const imagesByPost = extraImages.reduce<Record<string, FeedImage[]>>((acc, img) => {
+        acc[img.post_id] ??= [];
+        const url = signedMap.get(img.image_path);
+        if (url) acc[img.post_id].push({ url, aspect: img.aspect_ratio });
+        return acc;
+      }, {});
 
       const commentsByPost = comments.reduce<Record<string, FeedComment[]>>((acc, comment) => {
         acc[comment.post_id] ??= [];
@@ -316,6 +451,13 @@ const Dashboard = () => {
       const buildFeedPost = (post: PostRow): FeedPost => {
         const postLikes = likesByPost[post.id] ?? [];
         const postReposts = repostsByPost[post.id] ?? [];
+        const extras = imagesByPost[post.id] ?? [];
+        const legacy: FeedImage[] =
+          post.image_path && signedMap.get(post.image_path)
+            ? [{ url: signedMap.get(post.image_path)!, aspect: "original" }]
+            : [];
+        // Combine legacy single image + new multi-images (legacy first if exists separately)
+        const images = extras.length ? extras : legacy;
         return {
           ...post,
           author: profileMap.get(post.user_id),
@@ -325,7 +467,7 @@ const Dashboard = () => {
           repostCount: postReposts.length,
           likedByMe: postLikes.some((like) => like.user_id === user.id),
           repostedByMe: postReposts.some((repost) => repost.user_id === user.id),
-          imageUrl: post.image_path ? imageMap.get(post.image_path) ?? null : null,
+          images,
         };
       };
 
@@ -395,16 +537,13 @@ const Dashboard = () => {
     }
   }, [dashboardQuery.data?.profile]);
 
+  // Cleanup composer image previews
   useEffect(() => {
-    if (!composerImage) {
-      setComposerPreview(null);
-      return;
-    }
-
-    const objectUrl = URL.createObjectURL(composerImage);
-    setComposerPreview(objectUrl);
-    return () => URL.revokeObjectURL(objectUrl);
-  }, [composerImage]);
+    return () => {
+      composerImages.forEach((img) => URL.revokeObjectURL(img.previewUrl));
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const feed = dashboardQuery.data?.feed ?? [];
   const myPosts = useMemo(() => feed.filter((post) => post.user_id === user?.id), [feed, user?.id]);
@@ -475,32 +614,62 @@ const Dashboard = () => {
 
   const createPostMutation = useMutation({
     mutationFn: async () => {
-      const result = postSchema.safeParse({ content: composerText, hasImage: !!composerImage });
+      const result = postSchema.safeParse({
+        content: composerText,
+        hasImage: composerImages.length > 0,
+      });
       if (!result.success) throw new Error(result.error.errors[0]?.message ?? "Post inválido");
 
-      let imagePath: string | null = null;
-      if (composerImage && user?.id) {
-        const safeName = composerImage.name.replace(/[^a-zA-Z0-9._-]/g, "-");
-        imagePath = `${user.id}/${crypto.randomUUID()}-${safeName}`;
-        const uploadResult = await supabase.storage.from("post-images").upload(imagePath, composerImage, {
-          upsert: false,
-          contentType: composerImage.type,
-        });
-        if (uploadResult.error) throw uploadResult.error;
+      // Insert post first (without image_path; we use post_images table)
+      const { data: postRow, error: postError } = await supabase
+        .from("posts" as any)
+        .insert({
+          user_id: user?.id,
+          content: result.data.content?.trim() || "",
+          image_path: null,
+        } as any)
+        .select("id")
+        .single();
+
+      if (postError) throw postError;
+      const postId = (postRow as any).id as string;
+
+      // Upload images and insert post_images rows
+      if (composerImages.length && user?.id) {
+        const uploaded: { path: string; position: number }[] = [];
+        for (let i = 0; i < composerImages.length; i++) {
+          const item = composerImages[i];
+          const safeName = item.file.name.replace(/[^a-zA-Z0-9._-]/g, "-");
+          const path = `${user.id}/${crypto.randomUUID()}-${safeName}`;
+          const upload = await supabase.storage.from("post-images").upload(path, item.file, {
+            upsert: false,
+            contentType: item.file.type,
+          });
+          if (upload.error) throw upload.error;
+          uploaded.push({ path, position: i });
+        }
+
+        const rows = uploaded.map((u) => ({
+          post_id: postId,
+          image_path: u.path,
+          position: u.position,
+          aspect_ratio: composerAspect,
+        }));
+
+        const { error: imagesError } = await supabase.from("post_images" as any).insert(rows as any);
+        if (imagesError) throw imagesError;
       }
 
-      const { error } = await supabase.from("posts" as any).insert({
-        user_id: user?.id,
-        content: result.data.content?.trim() || "",
-        image_path: imagePath,
-      } as any);
-
-      if (error) throw error;
-      await logAction("post_create", "posts", { hasImage: !!imagePath });
+      await logAction("post_create", "posts", {
+        imageCount: composerImages.length,
+        aspect: composerAspect,
+      });
     },
     onSuccess: async () => {
+      composerImages.forEach((img) => URL.revokeObjectURL(img.previewUrl));
       setComposerText("");
-      setComposerImage(null);
+      setComposerImages([]);
+      setComposerAspect("original");
       toast({ title: "Publicado", description: "Tu post ya aparece en el feed." });
       await refreshDashboard();
     },
@@ -510,12 +679,13 @@ const Dashboard = () => {
   });
 
   const deletePostMutation = useMutation({
-    mutationFn: async (target: { id: string; imagePath: string | null }) => {
+    mutationFn: async (target: { id: string; imagePath: string | null; extraImagePaths: string[] }) => {
       const { error } = await supabase.from("posts" as any).delete().eq("id", target.id).eq("user_id", user?.id);
       if (error) throw error;
 
-      if (target.imagePath) {
-        await supabase.storage.from("post-images").remove([target.imagePath]);
+      const allPaths = [...(target.imagePath ? [target.imagePath] : []), ...target.extraImagePaths];
+      if (allPaths.length) {
+        await supabase.storage.from("post-images").remove(allPaths);
       }
 
       await logAction("post_delete", "posts", { postId: target.id });
@@ -553,7 +723,7 @@ const Dashboard = () => {
 
   const editPostMutation = useMutation({
     mutationFn: async ({ id, content }: { id: string; content: string }) => {
-      const result = postSchema.safeParse({ content, hasImage: true }); // hasImage true to skip empty validation
+      const result = postSchema.safeParse({ content, hasImage: true });
       if (!result.success) throw new Error(result.error.errors[0]?.message ?? "Inválido");
       const { error } = await supabase
         .from("posts" as any)
@@ -624,7 +794,6 @@ const Dashboard = () => {
       const result = repostSchema.safeParse({ comment });
       if (!result.success) throw new Error(result.error.errors[0]?.message ?? "Inválido");
 
-      // Create a post entry that references the original
       const { error: postError } = await supabase.from("posts" as any).insert({
         user_id: user?.id,
         content: "",
@@ -633,7 +802,6 @@ const Dashboard = () => {
       } as any);
       if (postError) throw postError;
 
-      // Track in post_reposts as well
       const { error: trackError } = await supabase.from("post_reposts" as any).insert({
         post_id: post.id,
         user_id: user?.id,
@@ -691,9 +859,44 @@ const Dashboard = () => {
     avatarMutation.mutate(file);
   };
 
+  const handleComposerImagesChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(event.target.files ?? []);
+    if (!files.length) return;
+
+    const MAX = 10;
+    const remaining = MAX - composerImages.length;
+    if (remaining <= 0) {
+      toast({ title: "Máximo 10 imágenes", variant: "destructive" });
+      return;
+    }
+    const accepted: ComposerImage[] = [];
+    for (const file of files.slice(0, remaining)) {
+      if (file.size > 5 * 1024 * 1024) {
+        toast({ title: `${file.name} es demasiado grande`, description: "Máximo 5MB", variant: "destructive" });
+        continue;
+      }
+      accepted.push({ file, previewUrl: URL.createObjectURL(file) });
+    }
+    setComposerImages((current) => [...current, ...accepted]);
+    event.target.value = "";
+  };
+
+  const removeComposerImage = (index: number) => {
+    setComposerImages((current) => {
+      const removed = current[index];
+      if (removed) URL.revokeObjectURL(removed.previewUrl);
+      return current.filter((_, i) => i !== index);
+    });
+  };
+
   const openEdit = (target: EditTarget) => {
     setEditTarget(target);
     setEditValue(target.content);
+  };
+
+  const handleNavSelect = (key: SectionKey) => {
+    setActiveSection(key);
+    setNavOpen(false);
   };
 
   const renderInnerOriginalPost = (original: FeedPost) => (
@@ -714,9 +917,9 @@ const Dashboard = () => {
       {original.content?.trim() && (
         <p className="mt-2 whitespace-pre-wrap text-sm leading-6 text-foreground">{original.content}</p>
       )}
-      {original.imageUrl && (
-        <div className="mt-2 overflow-hidden rounded-md border border-border">
-          <img src={original.imageUrl} alt="Imagen original" className="max-h-[320px] w-full object-cover" loading="lazy" />
+      {original.images.length > 0 && (
+        <div className="mt-2">
+          <PostImageDisplay images={original.images} />
         </div>
       )}
     </div>
@@ -748,15 +951,12 @@ const Dashboard = () => {
                 {post.author?.username && <span className="text-sm text-muted-foreground">@{post.author.username}</span>}
                 <span className="text-xs text-muted-foreground">• {getRelativeDate(post.created_at)}</span>
               </div>
-              {/* Repost comment */}
               {isRepost && post.repost_comment?.trim() && (
                 <p className="mt-3 whitespace-pre-wrap text-sm leading-6 text-foreground">{post.repost_comment}</p>
               )}
-              {/* Regular content */}
               {!isRepost && post.content?.trim() && (
                 <p className="mt-3 whitespace-pre-wrap text-sm leading-6 text-foreground">{post.content}</p>
               )}
-              {/* Inner original post for reposts */}
               {isRepost && post.originalPost && renderInnerOriginalPost(post.originalPost)}
             </div>
             {isMine && (
@@ -773,7 +973,14 @@ const Dashboard = () => {
                     </DropdownMenuItem>
                   )}
                   <DropdownMenuItem
-                    onClick={() => setDeleteTarget({ type: "post", id: post.id, imagePath: post.image_path })}
+                    onClick={() =>
+                      setDeleteTarget({
+                        type: "post",
+                        id: post.id,
+                        imagePath: post.image_path,
+                        extraImagePaths: [],
+                      })
+                    }
                     className="text-destructive focus:text-destructive"
                   >
                     <Trash2 size={14} className="mr-2" /> Eliminar
@@ -785,11 +992,7 @@ const Dashboard = () => {
         </CardHeader>
 
         <CardContent className="space-y-4">
-          {!isRepost && post.imageUrl && (
-            <div className="overflow-hidden rounded-md border border-border bg-background/60">
-              <img src={post.imageUrl} alt="Imagen del post" className="max-h-[520px] w-full object-cover" loading="lazy" />
-            </div>
-          )}
+          {!isRepost && post.images.length > 0 && <PostImageDisplay images={post.images} />}
 
           <div className="flex flex-wrap items-center gap-2 text-sm text-muted-foreground">
             <span>{post.likeCount} likes</span>
@@ -920,79 +1123,96 @@ const Dashboard = () => {
     profile: { label: "Perfil", icon: UserIcon },
   };
 
+  const composerPreviewRatio = ASPECT_OPTIONS.find((o) => o.key === composerAspect)?.ratio;
+
   return (
     <div className="min-h-screen gradient-bg">
       <header className="border-b border-border glass">
         <div className="mx-auto flex w-full max-w-6xl items-center justify-between gap-4 px-4 py-4 sm:px-6">
           <LoopLogo />
-          <div className="flex items-center gap-2 sm:gap-3">
-            <div className="hidden items-center gap-2 sm:flex">
-              <Avatar className="h-8 w-8 border border-border">
-                <AvatarImage src={currentProfile?.avatar_url ?? undefined} alt={headerName} />
-                <AvatarFallback className="text-xs font-semibold">
-                  {getInitials(currentProfile?.name, currentProfile?.username, user?.email)}
-                </AvatarFallback>
-              </Avatar>
-              <span className="inline-flex items-center gap-1 text-sm text-foreground">
-                {headerName}
-                {currentProfile?.verified && <BadgeCheck size={14} className="text-primary" />}
-              </span>
-            </div>
-
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button variant="outline" size="sm" className="border-border">
-                  <Menu size={16} />
-                  <span className="hidden sm:inline">Menú</span>
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="w-52 bg-popover">
-                <DropdownMenuLabel>Navegación</DropdownMenuLabel>
+          <Sheet open={navOpen} onOpenChange={setNavOpen}>
+            <SheetTrigger asChild>
+              <Button variant="outline" size="icon" className="border-border" aria-label="Abrir menú">
+                <Menu size={18} />
+              </Button>
+            </SheetTrigger>
+            <SheetContent side="right" className="w-72 p-0">
+              <SheetHeader className="border-b border-border p-4 text-left">
+                <SheetTitle className="flex items-center gap-3">
+                  <Avatar className="h-10 w-10 border border-border">
+                    <AvatarImage src={currentProfile?.avatar_url ?? undefined} alt={headerName} />
+                    <AvatarFallback className="text-xs font-semibold">
+                      {getInitials(currentProfile?.name, currentProfile?.username, user?.email)}
+                    </AvatarFallback>
+                  </Avatar>
+                  <span className="inline-flex items-center gap-1 truncate text-base font-semibold">
+                    {headerName}
+                    {currentProfile?.verified && <BadgeCheck size={16} className="text-primary" />}
+                  </span>
+                </SheetTitle>
+                <SheetDescription>
+                  {currentProfile?.username ? `@${currentProfile.username}` : "Sin nombre de usuario"}
+                </SheetDescription>
+              </SheetHeader>
+              <nav className="flex flex-col gap-1 p-3">
                 {(Object.keys(sectionLabels) as SectionKey[]).map((key) => {
                   const Icon = sectionLabels[key].icon;
+                  const active = activeSection === key;
                   return (
-                    <DropdownMenuItem key={key} onClick={() => setActiveSection(key)}>
-                      <Icon size={14} className="mr-2" /> {sectionLabels[key].label}
-                    </DropdownMenuItem>
+                    <button
+                      key={key}
+                      type="button"
+                      onClick={() => handleNavSelect(key)}
+                      className={cn(
+                        "inline-flex w-full items-center gap-3 rounded-md border border-transparent px-3 py-2.5 text-sm font-medium transition-colors",
+                        active
+                          ? "border-border bg-muted text-foreground"
+                          : "text-muted-foreground hover:bg-muted/60 hover:text-foreground",
+                      )}
+                    >
+                      <Icon size={18} />
+                      <span>{sectionLabels[key].label}</span>
+                    </button>
                   );
                 })}
                 {isAdmin && (
                   <>
-                    <DropdownMenuSeparator />
-                    <DropdownMenuItem onClick={() => navigate("/admin")}>
-                      <Shield size={14} className="mr-2" /> Panel admin
-                    </DropdownMenuItem>
+                    <Separator className="my-2" />
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setNavOpen(false);
+                        navigate("/admin");
+                      }}
+                      className="inline-flex w-full items-center gap-3 rounded-md px-3 py-2.5 text-sm font-medium text-muted-foreground transition-colors hover:bg-muted/60 hover:text-foreground"
+                    >
+                      <Shield size={18} />
+                      <span>Panel admin</span>
+                    </button>
                   </>
                 )}
-                <DropdownMenuSeparator />
-                <DropdownMenuItem onClick={handleLogout} className="text-destructive focus:text-destructive">
-                  <LogOut size={14} className="mr-2" /> Cerrar sesión
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
-          </div>
+                <Separator className="my-2" />
+                <button
+                  type="button"
+                  onClick={handleLogout}
+                  className="inline-flex w-full items-center gap-3 rounded-md px-3 py-2.5 text-sm font-medium text-destructive transition-colors hover:bg-destructive/10"
+                >
+                  <LogOut size={18} />
+                  <span>Cerrar sesión</span>
+                </button>
+              </nav>
+            </SheetContent>
+          </Sheet>
         </div>
       </header>
 
-      <main className="mx-auto max-w-6xl px-4 py-6 sm:px-6">
-        <Tabs value={activeSection} onValueChange={(value) => setActiveSection(value as SectionKey)} className="space-y-6">
-          <TabsList className="grid w-full grid-cols-3">
-            {(Object.keys(sectionLabels) as SectionKey[]).map((key) => {
-              const Icon = sectionLabels[key].icon;
-              return (
-                <TabsTrigger key={key} value={key} className="gap-2">
-                  <Icon size={14} /> <span className="hidden sm:inline">{sectionLabels[key].label}</span>
-                </TabsTrigger>
-              );
-            })}
-          </TabsList>
-
-          {/* FEED */}
-          <TabsContent value="feed" className="space-y-6">
+      <main className="mx-auto max-w-3xl space-y-6 px-4 py-6 sm:px-6">
+        {activeSection === "feed" && (
+          <>
             <Card className="glass border-border">
               <CardHeader>
                 <CardTitle className="text-xl">Comparte algo</CardTitle>
-                <CardDescription>Texto corto, una foto o ambas.</CardDescription>
+                <CardDescription>Texto corto, fotos (hasta 10) o ambas.</CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
                 <div className="flex items-start gap-3">
@@ -1011,19 +1231,65 @@ const Dashboard = () => {
                   />
                 </div>
 
-                {composerPreview && (
-                  <div className="relative overflow-hidden rounded-md border border-border bg-background/60">
-                    <img src={composerPreview} alt="Vista previa" className="max-h-[420px] w-full object-cover" loading="lazy" />
-                    <Button
-                      type="button"
-                      variant="secondary"
-                      size="icon"
-                      className="absolute right-3 top-3"
-                      onClick={() => setComposerImage(null)}
-                    >
-                      <X size={16} />
-                    </Button>
-                  </div>
+                {composerImages.length > 0 && (
+                  <>
+                    <div className="space-y-2">
+                      <Label className="text-xs uppercase tracking-wide text-muted-foreground">
+                        Tamaño de imagen
+                      </Label>
+                      <div className="flex flex-wrap gap-2">
+                        {ASPECT_OPTIONS.map((opt) => (
+                          <button
+                            key={opt.key}
+                            type="button"
+                            onClick={() => setComposerAspect(opt.key)}
+                            className={cn(
+                              "rounded-md border px-3 py-1.5 text-xs font-medium transition-colors",
+                              composerAspect === opt.key
+                                ? "border-primary bg-primary/10 text-primary"
+                                : "border-border text-muted-foreground hover:bg-muted",
+                            )}
+                          >
+                            {opt.label}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
+                      {composerImages.map((img, idx) => (
+                        <div
+                          key={idx}
+                          className="relative overflow-hidden rounded-md border border-border bg-background/60"
+                        >
+                          {composerPreviewRatio ? (
+                            <AspectRatio ratio={composerPreviewRatio}>
+                              <img src={img.previewUrl} alt={`Imagen ${idx + 1}`} className="h-full w-full object-cover" />
+                            </AspectRatio>
+                          ) : (
+                            <img
+                              src={img.previewUrl}
+                              alt={`Imagen ${idx + 1}`}
+                              className="aspect-square w-full object-cover"
+                            />
+                          )}
+                          <Button
+                            type="button"
+                            variant="secondary"
+                            size="icon"
+                            className="absolute right-1 top-1 h-7 w-7"
+                            onClick={() => removeComposerImage(idx)}
+                            aria-label="Quitar imagen"
+                          >
+                            <X size={14} />
+                          </Button>
+                          <span className="absolute bottom-1 left-1 rounded bg-background/80 px-1.5 py-0.5 text-[10px] font-medium">
+                            {idx + 1}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  </>
                 )}
 
                 <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
@@ -1031,11 +1297,12 @@ const Dashboard = () => {
                     <input
                       type="file"
                       accept="image/*"
+                      multiple
                       className="hidden"
-                      onChange={(event) => setComposerImage(event.target.files?.[0] ?? null)}
+                      onChange={handleComposerImagesChange}
                     />
                     <span className="inline-flex items-center gap-2 rounded-md border border-border bg-background px-3 py-2 hover:bg-muted">
-                      <ImagePlus size={16} /> Añadir foto
+                      <ImagePlus size={16} /> Añadir fotos
                     </span>
                   </label>
 
@@ -1067,122 +1334,122 @@ const Dashboard = () => {
             )}
 
             {feed.map((post) => renderPostCard(post))}
-          </TabsContent>
+          </>
+        )}
 
-          {/* SEARCH */}
-          <TabsContent value="search" className="space-y-6">
-            <Card className="glass border-border">
-              <CardHeader>
-                <CardTitle className="text-xl">Buscar</CardTitle>
-                <CardDescription>Busca usuarios y publicaciones.</CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="relative">
-                  <Search className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" size={16} />
-                  <Input
-                    value={globalSearch}
-                    onChange={(event) => setGlobalSearch(event.target.value)}
-                    placeholder="Busca personas o publicaciones"
-                    className="pl-9"
-                  />
+        {activeSection === "search" && (
+          <Card className="glass border-border">
+            <CardHeader>
+              <CardTitle className="text-xl">Buscar</CardTitle>
+              <CardDescription>Busca usuarios y publicaciones.</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="relative">
+                <Search className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" size={16} />
+                <Input
+                  value={globalSearch}
+                  onChange={(event) => setGlobalSearch(event.target.value)}
+                  placeholder="Busca personas o publicaciones"
+                  className="pl-9"
+                />
+              </div>
+
+              {globalSearch.trim().length >= 2 && (
+                <Tabs value={searchFilter} onValueChange={(v) => setSearchFilter(v as typeof searchFilter)}>
+                  <TabsList className="grid w-full grid-cols-3">
+                    <TabsTrigger value="all">Todo</TabsTrigger>
+                    <TabsTrigger value="users">Usuarios</TabsTrigger>
+                    <TabsTrigger value="posts">Publicaciones</TabsTrigger>
+                  </TabsList>
+                </Tabs>
+              )}
+
+              {globalSearch.trim().length < 2 ? (
+                <div className="rounded-md border border-dashed border-border px-4 py-8 text-center text-sm text-muted-foreground">
+                  Escribe al menos 2 caracteres para buscar.
                 </div>
+              ) : searchQuery.isLoading ? (
+                <>
+                  <Skeleton className="h-24 w-full rounded-lg" />
+                  <Skeleton className="h-24 w-full rounded-lg" />
+                </>
+              ) : (
+                <div className="space-y-6">
+                  {(searchFilter === "all" || searchFilter === "users") && (
+                    <div className="space-y-3">
+                      <h3 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">
+                        Usuarios ({searchQuery.data?.users.length ?? 0})
+                      </h3>
+                      {(searchQuery.data?.users.length ?? 0) === 0 ? (
+                        <p className="text-sm text-muted-foreground">Sin coincidencias.</p>
+                      ) : (
+                        <div className="grid gap-3">
+                          {searchQuery.data?.users.map((profile) => (
+                            <Card key={profile.id} className="border-border bg-background/40">
+                              <CardContent className="flex items-start gap-3 py-4">
+                                <Avatar className="h-12 w-12 border border-border">
+                                  <AvatarImage src={profile.avatar_url ?? undefined} alt={getDisplayName(profile)} />
+                                  <AvatarFallback className="font-semibold">
+                                    {getInitials(profile.name, profile.username)}
+                                  </AvatarFallback>
+                                </Avatar>
+                                <div className="min-w-0 flex-1 space-y-1">
+                                  <div className="flex flex-wrap items-center gap-2">
+                                    <NameWithBadge profile={profile} />
+                                    {profile.username && (
+                                      <span className="text-sm text-muted-foreground">@{profile.username}</span>
+                                    )}
+                                  </div>
+                                  <p className="text-sm leading-6 text-muted-foreground">
+                                    {profile.bio?.trim() || "Sin descripción."}
+                                  </p>
+                                </div>
+                              </CardContent>
+                            </Card>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  )}
 
-                {globalSearch.trim().length >= 2 && (
-                  <Tabs value={searchFilter} onValueChange={(v) => setSearchFilter(v as typeof searchFilter)}>
-                    <TabsList className="grid w-full grid-cols-3">
-                      <TabsTrigger value="all">Todo</TabsTrigger>
-                      <TabsTrigger value="users">Usuarios</TabsTrigger>
-                      <TabsTrigger value="posts">Publicaciones</TabsTrigger>
-                    </TabsList>
-                  </Tabs>
-                )}
-
-                {globalSearch.trim().length < 2 ? (
-                  <div className="rounded-md border border-dashed border-border px-4 py-8 text-center text-sm text-muted-foreground">
-                    Escribe al menos 2 caracteres para buscar.
-                  </div>
-                ) : searchQuery.isLoading ? (
-                  <>
-                    <Skeleton className="h-24 w-full rounded-lg" />
-                    <Skeleton className="h-24 w-full rounded-lg" />
-                  </>
-                ) : (
-                  <div className="space-y-6">
-                    {(searchFilter === "all" || searchFilter === "users") && (
-                      <div className="space-y-3">
-                        <h3 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">
-                          Usuarios ({searchQuery.data?.users.length ?? 0})
-                        </h3>
-                        {(searchQuery.data?.users.length ?? 0) === 0 ? (
-                          <p className="text-sm text-muted-foreground">Sin coincidencias.</p>
-                        ) : (
-                          <div className="grid gap-3">
-                            {searchQuery.data?.users.map((profile) => (
-                              <Card key={profile.id} className="border-border bg-background/40">
-                                <CardContent className="flex items-start gap-3 py-4">
-                                  <Avatar className="h-12 w-12 border border-border">
-                                    <AvatarImage src={profile.avatar_url ?? undefined} alt={getDisplayName(profile)} />
-                                    <AvatarFallback className="font-semibold">
-                                      {getInitials(profile.name, profile.username)}
+                  {(searchFilter === "all" || searchFilter === "posts") && (
+                    <div className="space-y-3">
+                      <h3 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">
+                        Publicaciones ({searchQuery.data?.posts.length ?? 0})
+                      </h3>
+                      {(searchQuery.data?.posts.length ?? 0) === 0 ? (
+                        <p className="text-sm text-muted-foreground">Sin coincidencias.</p>
+                      ) : (
+                        <div className="grid gap-3">
+                          {searchQuery.data?.posts.map((post) => (
+                            <Card key={post.id} className="border-border bg-background/40">
+                              <CardContent className="space-y-2 py-4">
+                                <div className="flex items-center gap-2 text-xs">
+                                  <Avatar className="h-7 w-7 border border-border">
+                                    <AvatarImage src={post.author?.avatar_url ?? undefined} alt={getDisplayName(post.author)} />
+                                    <AvatarFallback className="text-[10px] font-semibold">
+                                      {getInitials(post.author?.name, post.author?.username)}
                                     </AvatarFallback>
                                   </Avatar>
-                                  <div className="min-w-0 flex-1 space-y-1">
-                                    <div className="flex flex-wrap items-center gap-2">
-                                      <NameWithBadge profile={profile} />
-                                      {profile.username && (
-                                        <span className="text-sm text-muted-foreground">@{profile.username}</span>
-                                      )}
-                                    </div>
-                                    <p className="text-sm leading-6 text-muted-foreground">
-                                      {profile.bio?.trim() || "Sin descripción."}
-                                    </p>
-                                  </div>
-                                </CardContent>
-                              </Card>
-                            ))}
-                          </div>
-                        )}
-                      </div>
-                    )}
+                                  <NameWithBadge profile={post.author} />
+                                  <span className="text-muted-foreground">• {getRelativeDate(post.created_at)}</span>
+                                </div>
+                                <p className="whitespace-pre-wrap text-sm text-foreground">{post.content}</p>
+                              </CardContent>
+                            </Card>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        )}
 
-                    {(searchFilter === "all" || searchFilter === "posts") && (
-                      <div className="space-y-3">
-                        <h3 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">
-                          Publicaciones ({searchQuery.data?.posts.length ?? 0})
-                        </h3>
-                        {(searchQuery.data?.posts.length ?? 0) === 0 ? (
-                          <p className="text-sm text-muted-foreground">Sin coincidencias.</p>
-                        ) : (
-                          <div className="grid gap-3">
-                            {searchQuery.data?.posts.map((post) => (
-                              <Card key={post.id} className="border-border bg-background/40">
-                                <CardContent className="space-y-2 py-4">
-                                  <div className="flex items-center gap-2 text-xs">
-                                    <Avatar className="h-7 w-7 border border-border">
-                                      <AvatarImage src={post.author?.avatar_url ?? undefined} alt={getDisplayName(post.author)} />
-                                      <AvatarFallback className="text-[10px] font-semibold">
-                                        {getInitials(post.author?.name, post.author?.username)}
-                                      </AvatarFallback>
-                                    </Avatar>
-                                    <NameWithBadge profile={post.author} />
-                                    <span className="text-muted-foreground">• {getRelativeDate(post.created_at)}</span>
-                                  </div>
-                                  <p className="whitespace-pre-wrap text-sm text-foreground">{post.content}</p>
-                                </CardContent>
-                              </Card>
-                            ))}
-                          </div>
-                        )}
-                      </div>
-                    )}
-                  </div>
-                )}
-              </CardContent>
-            </Card>
-          </TabsContent>
-
-          {/* PROFILE */}
-          <TabsContent value="profile" className="space-y-6">
+        {activeSection === "profile" && (
+          <>
             <Card className="glass border-border">
               <CardHeader className="space-y-4">
                 <div className="flex items-start gap-4">
@@ -1231,10 +1498,6 @@ const Dashboard = () => {
                       <DropdownMenuItem onClick={() => setPrivacyOpen(true)}>
                         <Settings size={14} className="mr-2" /> Privacidad y cuenta
                       </DropdownMenuItem>
-                      <DropdownMenuSeparator />
-                      <DropdownMenuItem onClick={handleLogout} className="text-destructive focus:text-destructive">
-                        <LogOut size={14} className="mr-2" /> Cerrar sesión
-                      </DropdownMenuItem>
                     </DropdownMenuContent>
                   </DropdownMenu>
                 </div>
@@ -1271,8 +1534,8 @@ const Dashboard = () => {
                 myPosts.map((post) => renderPostCard(post, true))
               )}
             </section>
-          </TabsContent>
-        </Tabs>
+          </>
+        )}
       </main>
 
       {/* Delete dialog */}
@@ -1293,7 +1556,11 @@ const Dashboard = () => {
                 event.preventDefault();
                 if (!deleteTarget) return;
                 if (deleteTarget.type === "post") {
-                  deletePostMutation.mutate({ id: deleteTarget.id, imagePath: deleteTarget.imagePath });
+                  deletePostMutation.mutate({
+                    id: deleteTarget.id,
+                    imagePath: deleteTarget.imagePath,
+                    extraImagePaths: deleteTarget.extraImagePaths,
+                  });
                   return;
                 }
                 deleteCommentMutation.mutate(deleteTarget.id);
