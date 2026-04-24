@@ -1117,87 +1117,25 @@ const Dashboard = () => {
   const composerPreviewRatio = ASPECT_OPTIONS.find((o) => o.key === composerAspect)?.ratio;
 
   return (
-    <div className="min-h-screen gradient-bg">
-      <header className="border-b border-border glass">
-        <div className="mx-auto flex w-full max-w-6xl items-center justify-between gap-4 px-4 py-4 sm:px-6">
-          <LoopLogo />
-          <Sheet open={navOpen} onOpenChange={setNavOpen}>
-            <SheetTrigger asChild>
-              <Button variant="outline" size="icon" className="border-border" aria-label="Abrir menú">
-                <Menu size={18} />
-              </Button>
-            </SheetTrigger>
-            <SheetContent side="right" className="w-72 p-0">
-              <SheetHeader className="border-b border-border p-4 text-left">
-                <SheetTitle className="flex items-center gap-3">
-                  <Avatar className="h-10 w-10 border border-border">
-                    <AvatarImage src={currentProfile?.avatar_url ?? undefined} alt={headerName} />
-                    <AvatarFallback className="text-xs font-semibold">
-                      {getInitials(currentProfile?.name, currentProfile?.username, user?.email)}
-                    </AvatarFallback>
-                  </Avatar>
-                  <span className="inline-flex items-center gap-1 truncate text-base font-semibold">
-                    {headerName}
-                    {currentProfile?.verified && <BadgeCheck size={16} className="text-primary" />}
-                  </span>
-                </SheetTitle>
-                <SheetDescription>
-                  {currentProfile?.username ? `@${currentProfile.username}` : "Sin nombre de usuario"}
-                </SheetDescription>
-              </SheetHeader>
-              <nav className="flex flex-col gap-1 p-3">
-                {(Object.keys(sectionLabels) as SectionKey[]).map((key) => {
-                  const Icon = sectionLabels[key].icon;
-                  const active = activeSection === key;
-                  return (
-                    <button
-                      key={key}
-                      type="button"
-                      onClick={() => handleNavSelect(key)}
-                      className={cn(
-                        "inline-flex w-full items-center gap-3 rounded-md border border-transparent px-3 py-2.5 text-sm font-medium transition-colors",
-                        active
-                          ? "border-border bg-muted text-foreground"
-                          : "text-muted-foreground hover:bg-muted/60 hover:text-foreground",
-                      )}
-                    >
-                      <Icon size={18} />
-                      <span>{sectionLabels[key].label}</span>
-                    </button>
-                  );
-                })}
-                {isAdmin && (
-                  <>
-                    <Separator className="my-2" />
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setNavOpen(false);
-                        navigate("/admin");
-                      }}
-                      className="inline-flex w-full items-center gap-3 rounded-md px-3 py-2.5 text-sm font-medium text-muted-foreground transition-colors hover:bg-muted/60 hover:text-foreground"
-                    >
-                      <Shield size={18} />
-                      <span>Panel admin</span>
-                    </button>
-                  </>
-                )}
-                <Separator className="my-2" />
-                <button
-                  type="button"
-                  onClick={handleLogout}
-                  className="inline-flex w-full items-center gap-3 rounded-md px-3 py-2.5 text-sm font-medium text-destructive transition-colors hover:bg-destructive/10"
-                >
-                  <LogOut size={18} />
-                  <span>Cerrar sesión</span>
-                </button>
-              </nav>
-            </SheetContent>
-          </Sheet>
-        </div>
-      </header>
+    <SidebarProvider>
+      <div className="flex min-h-screen w-full gradient-bg">
+        <AppSidebar
+          active={activeSection}
+          onSelect={handleNavSelect}
+          profile={currentProfile}
+          displayName={headerName}
+          initials={getInitials(currentProfile?.name, currentProfile?.username, user?.email)}
+        />
 
-      <main className="mx-auto max-w-3xl space-y-6 px-4 py-6 sm:px-6">
+        <div className="flex min-w-0 flex-1 flex-col">
+          <header className="sticky top-0 z-10 flex h-14 items-center gap-3 border-b border-border glass px-4 sm:px-6">
+            <SidebarTrigger className="text-foreground" />
+            <span className="inline-flex items-center gap-2 text-sm font-semibold text-foreground">
+              {sectionLabels[activeSection].label}
+            </span>
+          </header>
+
+          <main className="mx-auto w-full max-w-3xl flex-1 space-y-6 px-4 py-6 sm:px-6">
         {activeSection === "feed" && (
           <>
             <Card className="glass border-border">
