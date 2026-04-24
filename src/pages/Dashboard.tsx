@@ -126,6 +126,7 @@ type PostImageRow = {
   image_path: string;
   position: number;
   aspect_ratio: string;
+  caption: string | null;
 };
 
 type CommentRow = {
@@ -142,7 +143,7 @@ type RepostRow = { post_id: string; user_id: string };
 type FeedComment = CommentRow & { author?: ProfileRow };
 type FeedLike = LikeRow & { author?: ProfileRow };
 
-type FeedImage = { url: string; aspect: string };
+type FeedImage = { url: string; aspect: string; caption: string | null };
 
 type FeedPost = PostRow & {
   author?: ProfileRow;
@@ -164,7 +165,7 @@ type EditTarget =
   | { type: "post"; id: string; content: string }
   | { type: "comment"; id: string; content: string };
 
-type ComposerImage = { file: File; previewUrl: string };
+type ComposerImage = { file: File; previewUrl: string; caption: string };
 
 const getInitials = (name?: string | null, username?: string | null, email?: string | null) => {
   const source = name || username || email || "U";
