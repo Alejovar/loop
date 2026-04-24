@@ -1430,9 +1430,6 @@ const Dashboard = () => {
                     </DropdownMenuContent>
                   </DropdownMenu>
     </div>
-        </div>
-      </div>
-    </SidebarProvider>
 
                 <div className="grid grid-cols-3 gap-2 text-center text-sm">
                   <div className="rounded-md border border-border bg-background/60 px-2 py-3">
