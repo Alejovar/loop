@@ -628,7 +628,7 @@ const Dashboard = () => {
 
       // Upload images and insert post_images rows
       if (composerImages.length && user?.id) {
-        const uploaded: { path: string; position: number }[] = [];
+        const uploaded: { path: string; position: number; caption: string | null }[] = [];
         for (let i = 0; i < composerImages.length; i++) {
           const item = composerImages[i];
           const safeName = item.file.name.replace(/[^a-zA-Z0-9._-]/g, "-");
@@ -638,7 +638,7 @@ const Dashboard = () => {
             contentType: item.file.type,
           });
           if (upload.error) throw upload.error;
-          uploaded.push({ path, position: i });
+          uploaded.push({ path, position: i, caption: item.caption.trim() || null });
         }
 
         const rows = uploaded.map((u) => ({
@@ -646,6 +646,7 @@ const Dashboard = () => {
           image_path: u.path,
           position: u.position,
           aspect_ratio: composerAspect,
+          caption: u.caption,
         }));
 
         const { error: imagesError } = await supabase.from("post_images" as any).insert(rows as any);
