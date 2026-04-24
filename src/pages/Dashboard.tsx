@@ -1260,8 +1260,8 @@ const Dashboard = () => {
                     Publicar
                   </Button>
                 </div>
-              </CardContent>
-            </Card>
+              )}
+          </div>
 
             {dashboardQuery.isLoading ? (
               <>
