@@ -1196,103 +1196,48 @@ const Dashboard = () => {
                       </div>
                     </div>
 
-                    <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
+                    <div className="space-y-3">
                       {composerImages.map((img, idx) => (
-                        <div
-                          key={idx}
-                          className="relative overflow-hidden rounded-md border border-border bg-background/60"
-                        >
-                          {composerPreviewRatio ? (
-                            <AspectRatio ratio={composerPreviewRatio}>
-                              <img src={img.previewUrl} alt={`Imagen ${idx + 1}`} className="h-full w-full object-cover" />
-                            </AspectRatio>
-                          ) : (
-                            <img
-                              src={img.previewUrl}
-                              alt={`Imagen ${idx + 1}`}
-                              className="aspect-square w-full object-cover"
-                            />
-                          )}
-                          <Button
-                            type="button"
-                            variant="secondary"
-                            size="icon"
-                            className="absolute right-1 top-1 h-7 w-7"
-                            onClick={() => removeComposerImage(idx)}
-                            aria-label="Quitar imagen"
-                          >
-                            <X size={14} />
-                          </Button>
-                          <span className="absolute bottom-1 left-1 rounded bg-background/80 px-1.5 py-0.5 text-[10px] font-medium">
-                            {idx + 1}
-                          </span>
+                        <div key={idx} className="rounded-md border border-border bg-background/60 p-2">
+                          <div className="flex gap-3">
+                            <div className="relative w-32 flex-shrink-0 overflow-hidden rounded-md border border-border">
+                              {composerPreviewRatio ? (
+                                <AspectRatio ratio={composerPreviewRatio}>
+                                  <img src={img.previewUrl} alt={`Imagen ${idx + 1}`} className="h-full w-full object-cover" />
+                                </AspectRatio>
+                              ) : (
+                                <img src={img.previewUrl} alt={`Imagen ${idx + 1}`} className="aspect-square w-full object-cover" />
+                              )}
+                              <span className="absolute bottom-1 left-1 rounded bg-background/80 px-1.5 py-0.5 text-[10px] font-medium">
+                                {idx + 1}
+                              </span>
+                            </div>
+                            <div className="flex flex-1 flex-col gap-2">
+                              <Textarea
+                                value={img.caption}
+                                onChange={(event) =>
+                                  setComposerImages((current) =>
+                                    current.map((c, i) => (i === idx ? { ...c, caption: event.target.value } : c)),
+                                  )
+                                }
+                                placeholder="Descripción opcional de esta foto…"
+                                maxLength={300}
+                                className="min-h-[72px] resize-none text-sm"
+                              />
+                              <Button
+                                type="button"
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => removeComposerImage(idx)}
+                                className="self-end text-destructive hover:text-destructive"
+                              >
+                                <X size={14} className="mr-1" /> Quitar
+                              </Button>
+                            </div>
+                          </div>
                         </div>
                       ))}
                     </div>
-                  </>
-                )}
-
-                <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                  <label className="inline-flex cursor-pointer items-center gap-2 text-sm text-muted-foreground">
-                    <input
-                      type="file"
-                      accept="image/*"
-                      multiple
-                      className="hidden"
-                      onChange={handleComposerImagesChange}
-                    />
-                    <span className="inline-flex items-center gap-2 rounded-md border border-border bg-background px-3 py-2 hover:bg-muted">
-                      <ImagePlus size={16} /> Añadir fotos
-                    </span>
-                  </label>
-
-                  <Button onClick={() => createPostMutation.mutate()} disabled={createPostMutation.isPending}>
-                    {createPostMutation.isPending ? <Loader2 className="animate-spin" size={16} /> : <Send size={16} />}
-                    Publicar
-                  </Button>
-                </div>
-              </CardContent>
-            </Card>
-
-            {dashboardQuery.isLoading && (
-              <>
-                <Skeleton className="h-40 w-full rounded-lg" />
-                <Skeleton className="h-56 w-full rounded-lg" />
-              </>
-            )}
-
-            {!dashboardQuery.isLoading && feed.length === 0 && (
-              <Card className="glass border-border">
-                <CardContent className="flex flex-col items-center gap-3 py-12 text-center">
-                  <UserRound size={28} className="text-muted-foreground" />
-                  <div>
-                    <h1 className="text-lg font-semibold text-foreground">Aún no hay posts</h1>
-                    <p className="text-sm text-muted-foreground">Sé la primera persona en publicar algo.</p>
-                  </div>
-                </CardContent>
-              </Card>
-            )}
-
-            {feed.map((post) => renderPostCard(post))}
-          </>
-        )}
-
-        {activeSection === "search" && (
-          <Card className="glass border-border">
-            <CardHeader>
-              <CardTitle className="text-xl">Buscar</CardTitle>
-              <CardDescription>Busca usuarios y publicaciones.</CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="relative">
-                <Search className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" size={16} />
-                <Input
-                  value={globalSearch}
-                  onChange={(event) => setGlobalSearch(event.target.value)}
-                  placeholder="Busca personas o publicaciones"
-                  className="pl-9"
-                />
-              </div>
 
               {globalSearch.trim().length >= 2 && (
                 <Tabs value={searchFilter} onValueChange={(v) => setSearchFilter(v as typeof searchFilter)}>
