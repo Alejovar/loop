@@ -1238,6 +1238,60 @@ const Dashboard = () => {
                         </div>
                       ))}
                     </div>
+                    </div>
+                  </>
+                )}
+
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                  <label className="inline-flex cursor-pointer items-center gap-2 text-sm text-muted-foreground">
+                    <input
+                      type="file"
+                      accept="image/*"
+                      multiple
+                      className="hidden"
+                      onChange={handleComposerImagesChange}
+                    />
+                    <span className="inline-flex items-center gap-2 rounded-md border border-border bg-background px-3 py-2 hover:bg-muted">
+                      <ImagePlus size={16} /> Añadir fotos
+                    </span>
+                  </label>
+
+                  <Button onClick={() => createPostMutation.mutate()} disabled={createPostMutation.isPending}>
+                    {createPostMutation.isPending ? <Loader2 className="animate-spin" size={16} /> : <Send size={16} />}
+                    Publicar
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
+
+            {dashboardQuery.isLoading ? (
+              <>
+                <Skeleton className="h-40 w-full rounded-lg" />
+                <Skeleton className="h-40 w-full rounded-lg" />
+              </>
+            ) : feed.length === 0 ? (
+              <Card className="glass border-border">
+                <CardContent className="py-12 text-center text-sm text-muted-foreground">
+                  Aún no hay publicaciones. ¡Sé el primero!
+                </CardContent>
+              </Card>
+            ) : (
+              feed.map((post) => renderPostCard(post))
+            )}
+          </>
+        )}
+
+        {activeSection === "search" && (
+          <div className="space-y-4">
+            <div className="relative">
+              <Search size={16} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
+              <Input
+                value={globalSearch}
+                onChange={(event) => setGlobalSearch(event.target.value)}
+                placeholder="Buscar usuarios o publicaciones…"
+                className="pl-9"
+              />
+            </div>
 
               {globalSearch.trim().length >= 2 && (
                 <Tabs value={searchFilter} onValueChange={(v) => setSearchFilter(v as typeof searchFilter)}>
