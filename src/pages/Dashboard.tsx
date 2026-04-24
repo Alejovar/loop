@@ -366,7 +366,7 @@ const Dashboard = () => {
         allPostIds.length
           ? supabase
               .from("post_images" as any)
-              .select("id, post_id, image_path, position, aspect_ratio")
+              .select("id, post_id, image_path, position, aspect_ratio, caption")
               .in("post_id", allPostIds)
               .order("position", { ascending: true })
           : Promise.resolve({ data: [], error: null }),
@@ -418,7 +418,7 @@ const Dashboard = () => {
       const imagesByPost = extraImages.reduce<Record<string, FeedImage[]>>((acc, img) => {
         acc[img.post_id] ??= [];
         const url = signedMap.get(img.image_path);
-        if (url) acc[img.post_id].push({ url, aspect: img.aspect_ratio });
+        if (url) acc[img.post_id].push({ url, aspect: img.aspect_ratio, caption: img.caption });
         return acc;
       }, {});
 
@@ -446,7 +446,7 @@ const Dashboard = () => {
         const extras = imagesByPost[post.id] ?? [];
         const legacy: FeedImage[] =
           post.image_path && signedMap.get(post.image_path)
-            ? [{ url: signedMap.get(post.image_path)!, aspect: "original" }]
+            ? [{ url: signedMap.get(post.image_path)!, aspect: "original", caption: null }]
             : [];
         // Combine legacy single image + new multi-images (legacy first if exists separately)
         const images = extras.length ? extras : legacy;
@@ -867,7 +867,7 @@ const Dashboard = () => {
         toast({ title: `${file.name} es demasiado grande`, description: "Máximo 5MB", variant: "destructive" });
         continue;
       }
-      accepted.push({ file, previewUrl: URL.createObjectURL(file) });
+      accepted.push({ file, previewUrl: URL.createObjectURL(file), caption: "" });
     }
     setComposerImages((current) => [...current, ...accepted]);
     event.target.value = "";
