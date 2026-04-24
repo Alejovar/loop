@@ -1689,7 +1689,9 @@ const Dashboard = () => {
           </div>
         </DialogContent>
       </Dialog>
-    </div>
+        </div>
+      </div>
+    </SidebarProvider>
   );
 };
 
