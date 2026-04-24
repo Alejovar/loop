@@ -1193,7 +1193,6 @@ const Dashboard = () => {
                             {opt.label}
                           </button>
                         ))}
-                      </div>
                     </div>
 
                     <div className="space-y-3">
