@@ -1466,9 +1466,6 @@ const Dashboard = () => {
           </>
         )}
           </main>
-        </div>
-      </div>
-    </SidebarProvider>
 
       {/* Delete dialog */}
       <AlertDialog open={!!deleteTarget} onOpenChange={(open) => !open && setDeleteTarget(null)}>
