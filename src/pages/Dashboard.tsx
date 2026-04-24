@@ -288,7 +288,7 @@ const Dashboard = () => {
   const { isAdmin } = useRole();
 
   const [activeSection, setActiveSection] = useState<SectionKey>("feed");
-  const [navOpen, setNavOpen] = useState(false);
+  // sidebar state ahora gestionado por SidebarProvider
   const [profileForm, setProfileForm] = useState({ name: "", username: "", bio: "" });
   const [composerText, setComposerText] = useState("");
   const [composerImages, setComposerImages] = useState<ComposerImage[]>([]);
@@ -887,7 +887,6 @@ const Dashboard = () => {
 
   const handleNavSelect = (key: SectionKey) => {
     setActiveSection(key);
-    setNavOpen(false);
   };
 
   const renderInnerOriginalPost = (original: FeedPost) => (
