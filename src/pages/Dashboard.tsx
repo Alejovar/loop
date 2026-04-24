@@ -913,7 +913,8 @@ const Dashboard = () => {
           <PostImageDisplay images={original.images} />
         </div>
       )}
-    </div>
+      </div>
+    </SidebarProvider>
   );
 
   const renderPostCard = (post: FeedPost, compact = false) => {
@@ -1465,7 +1466,8 @@ const Dashboard = () => {
             </section>
           </>
         )}
-      </main>
+          </main>
+        </div>
 
       {/* Delete dialog */}
       <AlertDialog open={!!deleteTarget} onOpenChange={(open) => !open && setDeleteTarget(null)}>
