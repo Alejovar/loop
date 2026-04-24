@@ -913,8 +913,7 @@ const Dashboard = () => {
           <PostImageDisplay images={original.images} />
         </div>
       )}
-      </div>
-    </SidebarProvider>
+    </div>
   );
 
   const renderPostCard = (post: FeedPost, compact = false) => {
