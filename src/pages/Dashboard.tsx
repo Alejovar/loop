@@ -10,8 +10,6 @@ import {
   Home,
   ImagePlus,
   Loader2,
-  LogOut,
-  Menu,
   MoreHorizontal,
   Pencil,
   Repeat2,
@@ -19,7 +17,6 @@ import {
   Search,
   Send,
   Settings,
-  Shield,
   ShieldAlert,
   Trash2,
   User as UserIcon,
@@ -73,17 +70,11 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
-import {
-  Sheet,
-  SheetContent,
-  SheetDescription,
-  SheetHeader,
-  SheetTitle,
-  SheetTrigger,
-} from "@/components/ui/sheet";
 import { Skeleton } from "@/components/ui/skeleton";
+import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
+import { AppSidebar } from "@/components/AppSidebar";
 import { cn } from "@/lib/utils";
 
 type SectionKey = "feed" | "search" | "profile";
