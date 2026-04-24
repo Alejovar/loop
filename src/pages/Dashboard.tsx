@@ -10,8 +10,6 @@ import {
   Home,
   ImagePlus,
   Loader2,
-  LogOut,
-  Menu,
   MoreHorizontal,
   Pencil,
   Repeat2,
@@ -19,7 +17,6 @@ import {
   Search,
   Send,
   Settings,
-  Shield,
   ShieldAlert,
   Trash2,
   User as UserIcon,
@@ -73,17 +70,11 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
-import {
-  Sheet,
-  SheetContent,
-  SheetDescription,
-  SheetHeader,
-  SheetTitle,
-  SheetTrigger,
-} from "@/components/ui/sheet";
 import { Skeleton } from "@/components/ui/skeleton";
+import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
+import { AppSidebar } from "@/components/AppSidebar";
 import { cn } from "@/lib/utils";
 
 type SectionKey = "feed" | "search" | "profile";
@@ -135,6 +126,7 @@ type PostImageRow = {
   image_path: string;
   position: number;
   aspect_ratio: string;
+  caption: string | null;
 };
 
 type CommentRow = {
@@ -151,7 +143,7 @@ type RepostRow = { post_id: string; user_id: string };
 type FeedComment = CommentRow & { author?: ProfileRow };
 type FeedLike = LikeRow & { author?: ProfileRow };
 
-type FeedImage = { url: string; aspect: string };
+type FeedImage = { url: string; aspect: string; caption: string | null };
 
 type FeedPost = PostRow & {
   author?: ProfileRow;
@@ -173,7 +165,7 @@ type EditTarget =
   | { type: "post"; id: string; content: string }
   | { type: "comment"; id: string; content: string };
 
-type ComposerImage = { file: File; previewUrl: string };
+type ComposerImage = { file: File; previewUrl: string; caption: string };
 
 const getInitials = (name?: string | null, username?: string | null, email?: string | null) => {
   const source = name || username || email || "U";
@@ -235,13 +227,18 @@ const PostImageDisplay = ({ images }: { images: FeedImage[] }) => {
     const img = images[0];
     const ratioClass = aspectClass(img.aspect);
     return (
-      <div className={cn("overflow-hidden rounded-md border border-border bg-background/60", ratioClass)}>
-        <img
-          src={img.url}
-          alt="Imagen del post"
-          className={cn("w-full", ratioClass ? "h-full object-cover" : "max-h-[520px] object-cover")}
-          loading="lazy"
-        />
+      <div className="space-y-2">
+        <div className={cn("overflow-hidden rounded-md border border-border bg-background/60", ratioClass)}>
+          <img
+            src={img.url}
+            alt="Imagen del post"
+            className={cn("w-full", ratioClass ? "h-full object-cover" : "max-h-[520px] object-cover")}
+            loading="lazy"
+          />
+        </div>
+        {img.caption?.trim() && (
+          <p className="whitespace-pre-wrap text-sm leading-6 text-foreground">{img.caption}</p>
+        )}
       </div>
     );
   }
@@ -286,6 +283,11 @@ const PostImageDisplay = ({ images }: { images: FeedImage[] }) => {
           />
         ))}
       </div>
+      {images[current]?.caption?.trim() && (
+        <p className="mt-2 whitespace-pre-wrap text-sm leading-6 text-foreground">
+          {images[current].caption}
+        </p>
+      )}
     </div>
   );
 };
@@ -297,7 +299,7 @@ const Dashboard = () => {
   const { isAdmin } = useRole();
 
   const [activeSection, setActiveSection] = useState<SectionKey>("feed");
-  const [navOpen, setNavOpen] = useState(false);
+  // sidebar state ahora gestionado por SidebarProvider
   const [profileForm, setProfileForm] = useState({ name: "", username: "", bio: "" });
   const [composerText, setComposerText] = useState("");
   const [composerImages, setComposerImages] = useState<ComposerImage[]>([]);
@@ -374,7 +376,7 @@ const Dashboard = () => {
         allPostIds.length
           ? supabase
               .from("post_images" as any)
-              .select("id, post_id, image_path, position, aspect_ratio")
+              .select("id, post_id, image_path, position, aspect_ratio, caption")
               .in("post_id", allPostIds)
               .order("position", { ascending: true })
           : Promise.resolve({ data: [], error: null }),
@@ -426,7 +428,7 @@ const Dashboard = () => {
       const imagesByPost = extraImages.reduce<Record<string, FeedImage[]>>((acc, img) => {
         acc[img.post_id] ??= [];
         const url = signedMap.get(img.image_path);
-        if (url) acc[img.post_id].push({ url, aspect: img.aspect_ratio });
+        if (url) acc[img.post_id].push({ url, aspect: img.aspect_ratio, caption: img.caption });
         return acc;
       }, {});
 
@@ -454,7 +456,7 @@ const Dashboard = () => {
         const extras = imagesByPost[post.id] ?? [];
         const legacy: FeedImage[] =
           post.image_path && signedMap.get(post.image_path)
-            ? [{ url: signedMap.get(post.image_path)!, aspect: "original" }]
+            ? [{ url: signedMap.get(post.image_path)!, aspect: "original", caption: null }]
             : [];
         // Combine legacy single image + new multi-images (legacy first if exists separately)
         const images = extras.length ? extras : legacy;
@@ -636,7 +638,7 @@ const Dashboard = () => {
 
       // Upload images and insert post_images rows
       if (composerImages.length && user?.id) {
-        const uploaded: { path: string; position: number }[] = [];
+        const uploaded: { path: string; position: number; caption: string | null }[] = [];
         for (let i = 0; i < composerImages.length; i++) {
           const item = composerImages[i];
           const safeName = item.file.name.replace(/[^a-zA-Z0-9._-]/g, "-");
@@ -646,7 +648,7 @@ const Dashboard = () => {
             contentType: item.file.type,
           });
           if (upload.error) throw upload.error;
-          uploaded.push({ path, position: i });
+          uploaded.push({ path, position: i, caption: item.caption.trim() || null });
         }
 
         const rows = uploaded.map((u) => ({
@@ -654,6 +656,7 @@ const Dashboard = () => {
           image_path: u.path,
           position: u.position,
           aspect_ratio: composerAspect,
+          caption: u.caption,
         }));
 
         const { error: imagesError } = await supabase.from("post_images" as any).insert(rows as any);
@@ -875,7 +878,7 @@ const Dashboard = () => {
         toast({ title: `${file.name} es demasiado grande`, description: "Máximo 5MB", variant: "destructive" });
         continue;
       }
-      accepted.push({ file, previewUrl: URL.createObjectURL(file) });
+      accepted.push({ file, previewUrl: URL.createObjectURL(file), caption: "" });
     }
     setComposerImages((current) => [...current, ...accepted]);
     event.target.value = "";
@@ -896,7 +899,6 @@ const Dashboard = () => {
 
   const handleNavSelect = (key: SectionKey) => {
     setActiveSection(key);
-    setNavOpen(false);
   };
 
   const renderInnerOriginalPost = (original: FeedPost) => (
@@ -1126,87 +1128,25 @@ const Dashboard = () => {
   const composerPreviewRatio = ASPECT_OPTIONS.find((o) => o.key === composerAspect)?.ratio;
 
   return (
-    <div className="min-h-screen gradient-bg">
-      <header className="border-b border-border glass">
-        <div className="mx-auto flex w-full max-w-6xl items-center justify-between gap-4 px-4 py-4 sm:px-6">
-          <LoopLogo />
-          <Sheet open={navOpen} onOpenChange={setNavOpen}>
-            <SheetTrigger asChild>
-              <Button variant="outline" size="icon" className="border-border" aria-label="Abrir menú">
-                <Menu size={18} />
-              </Button>
-            </SheetTrigger>
-            <SheetContent side="right" className="w-72 p-0">
-              <SheetHeader className="border-b border-border p-4 text-left">
-                <SheetTitle className="flex items-center gap-3">
-                  <Avatar className="h-10 w-10 border border-border">
-                    <AvatarImage src={currentProfile?.avatar_url ?? undefined} alt={headerName} />
-                    <AvatarFallback className="text-xs font-semibold">
-                      {getInitials(currentProfile?.name, currentProfile?.username, user?.email)}
-                    </AvatarFallback>
-                  </Avatar>
-                  <span className="inline-flex items-center gap-1 truncate text-base font-semibold">
-                    {headerName}
-                    {currentProfile?.verified && <BadgeCheck size={16} className="text-primary" />}
-                  </span>
-                </SheetTitle>
-                <SheetDescription>
-                  {currentProfile?.username ? `@${currentProfile.username}` : "Sin nombre de usuario"}
-                </SheetDescription>
-              </SheetHeader>
-              <nav className="flex flex-col gap-1 p-3">
-                {(Object.keys(sectionLabels) as SectionKey[]).map((key) => {
-                  const Icon = sectionLabels[key].icon;
-                  const active = activeSection === key;
-                  return (
-                    <button
-                      key={key}
-                      type="button"
-                      onClick={() => handleNavSelect(key)}
-                      className={cn(
-                        "inline-flex w-full items-center gap-3 rounded-md border border-transparent px-3 py-2.5 text-sm font-medium transition-colors",
-                        active
-                          ? "border-border bg-muted text-foreground"
-                          : "text-muted-foreground hover:bg-muted/60 hover:text-foreground",
-                      )}
-                    >
-                      <Icon size={18} />
-                      <span>{sectionLabels[key].label}</span>
-                    </button>
-                  );
-                })}
-                {isAdmin && (
-                  <>
-                    <Separator className="my-2" />
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setNavOpen(false);
-                        navigate("/admin");
-                      }}
-                      className="inline-flex w-full items-center gap-3 rounded-md px-3 py-2.5 text-sm font-medium text-muted-foreground transition-colors hover:bg-muted/60 hover:text-foreground"
-                    >
-                      <Shield size={18} />
-                      <span>Panel admin</span>
-                    </button>
-                  </>
-                )}
-                <Separator className="my-2" />
-                <button
-                  type="button"
-                  onClick={handleLogout}
-                  className="inline-flex w-full items-center gap-3 rounded-md px-3 py-2.5 text-sm font-medium text-destructive transition-colors hover:bg-destructive/10"
-                >
-                  <LogOut size={18} />
-                  <span>Cerrar sesión</span>
-                </button>
-              </nav>
-            </SheetContent>
-          </Sheet>
-        </div>
-      </header>
+    <SidebarProvider>
+      <div className="flex min-h-screen w-full gradient-bg">
+        <AppSidebar
+          active={activeSection}
+          onSelect={handleNavSelect}
+          profile={currentProfile}
+          displayName={headerName}
+          initials={getInitials(currentProfile?.name, currentProfile?.username, user?.email)}
+        />
 
-      <main className="mx-auto max-w-3xl space-y-6 px-4 py-6 sm:px-6">
+        <div className="flex min-w-0 flex-1 flex-col">
+          <header className="sticky top-0 z-10 flex h-14 items-center gap-3 border-b border-border glass px-4 sm:px-6">
+            <SidebarTrigger className="text-foreground" />
+            <span className="inline-flex items-center gap-2 text-sm font-semibold text-foreground">
+              {sectionLabels[activeSection].label}
+            </span>
+          </header>
+
+          <main className="mx-auto w-full max-w-3xl flex-1 space-y-6 px-4 py-6 sm:px-6">
         {activeSection === "feed" && (
           <>
             <Card className="glass border-border">
@@ -1256,36 +1196,45 @@ const Dashboard = () => {
                       </div>
                     </div>
 
-                    <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
+                    <div className="space-y-3">
                       {composerImages.map((img, idx) => (
-                        <div
-                          key={idx}
-                          className="relative overflow-hidden rounded-md border border-border bg-background/60"
-                        >
-                          {composerPreviewRatio ? (
-                            <AspectRatio ratio={composerPreviewRatio}>
-                              <img src={img.previewUrl} alt={`Imagen ${idx + 1}`} className="h-full w-full object-cover" />
-                            </AspectRatio>
-                          ) : (
-                            <img
-                              src={img.previewUrl}
-                              alt={`Imagen ${idx + 1}`}
-                              className="aspect-square w-full object-cover"
-                            />
-                          )}
-                          <Button
-                            type="button"
-                            variant="secondary"
-                            size="icon"
-                            className="absolute right-1 top-1 h-7 w-7"
-                            onClick={() => removeComposerImage(idx)}
-                            aria-label="Quitar imagen"
-                          >
-                            <X size={14} />
-                          </Button>
-                          <span className="absolute bottom-1 left-1 rounded bg-background/80 px-1.5 py-0.5 text-[10px] font-medium">
-                            {idx + 1}
-                          </span>
+                        <div key={idx} className="rounded-md border border-border bg-background/60 p-2">
+                          <div className="flex gap-3">
+                            <div className="relative w-32 flex-shrink-0 overflow-hidden rounded-md border border-border">
+                              {composerPreviewRatio ? (
+                                <AspectRatio ratio={composerPreviewRatio}>
+                                  <img src={img.previewUrl} alt={`Imagen ${idx + 1}`} className="h-full w-full object-cover" />
+                                </AspectRatio>
+                              ) : (
+                                <img src={img.previewUrl} alt={`Imagen ${idx + 1}`} className="aspect-square w-full object-cover" />
+                              )}
+                              <span className="absolute bottom-1 left-1 rounded bg-background/80 px-1.5 py-0.5 text-[10px] font-medium">
+                                {idx + 1}
+                              </span>
+                            </div>
+                            <div className="flex flex-1 flex-col gap-2">
+                              <Textarea
+                                value={img.caption}
+                                onChange={(event) =>
+                                  setComposerImages((current) =>
+                                    current.map((c, i) => (i === idx ? { ...c, caption: event.target.value } : c)),
+                                  )
+                                }
+                                placeholder="Descripción opcional de esta foto…"
+                                maxLength={300}
+                                className="min-h-[72px] resize-none text-sm"
+                              />
+                              <Button
+                                type="button"
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => removeComposerImage(idx)}
+                                className="self-end text-destructive hover:text-destructive"
+                              >
+                                <X size={14} className="mr-1" /> Quitar
+                              </Button>
+                            </div>
+                          </div>
                         </div>
                       ))}
                     </div>
@@ -1311,48 +1260,37 @@ const Dashboard = () => {
                     Publicar
                   </Button>
                 </div>
-              </CardContent>
-            </Card>
+              )}
+          </div>
 
-            {dashboardQuery.isLoading && (
+            {dashboardQuery.isLoading ? (
               <>
                 <Skeleton className="h-40 w-full rounded-lg" />
-                <Skeleton className="h-56 w-full rounded-lg" />
+                <Skeleton className="h-40 w-full rounded-lg" />
               </>
-            )}
-
-            {!dashboardQuery.isLoading && feed.length === 0 && (
+            ) : feed.length === 0 ? (
               <Card className="glass border-border">
-                <CardContent className="flex flex-col items-center gap-3 py-12 text-center">
-                  <UserRound size={28} className="text-muted-foreground" />
-                  <div>
-                    <h1 className="text-lg font-semibold text-foreground">Aún no hay posts</h1>
-                    <p className="text-sm text-muted-foreground">Sé la primera persona en publicar algo.</p>
-                  </div>
+                <CardContent className="py-12 text-center text-sm text-muted-foreground">
+                  Aún no hay publicaciones. ¡Sé el primero!
                 </CardContent>
               </Card>
+            ) : (
+              feed.map((post) => renderPostCard(post))
             )}
-
-            {feed.map((post) => renderPostCard(post))}
           </>
         )}
 
         {activeSection === "search" && (
-          <Card className="glass border-border">
-            <CardHeader>
-              <CardTitle className="text-xl">Buscar</CardTitle>
-              <CardDescription>Busca usuarios y publicaciones.</CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="relative">
-                <Search className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" size={16} />
-                <Input
-                  value={globalSearch}
-                  onChange={(event) => setGlobalSearch(event.target.value)}
-                  placeholder="Busca personas o publicaciones"
-                  className="pl-9"
-                />
-              </div>
+          <div className="space-y-4">
+            <div className="relative">
+              <Search size={16} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
+              <Input
+                value={globalSearch}
+                onChange={(event) => setGlobalSearch(event.target.value)}
+                placeholder="Buscar usuarios o publicaciones…"
+                className="pl-9"
+              />
+            </div>
 
               {globalSearch.trim().length >= 2 && (
                 <Tabs value={searchFilter} onValueChange={(v) => setSearchFilter(v as typeof searchFilter)}>
@@ -1500,7 +1438,7 @@ const Dashboard = () => {
                       </DropdownMenuItem>
                     </DropdownMenuContent>
                   </DropdownMenu>
-                </div>
+    </div>
 
                 <div className="grid grid-cols-3 gap-2 text-center text-sm">
                   <div className="rounded-md border border-border bg-background/60 px-2 py-3">
@@ -1536,7 +1474,7 @@ const Dashboard = () => {
             </section>
           </>
         )}
-      </main>
+          </main>
 
       {/* Delete dialog */}
       <AlertDialog open={!!deleteTarget} onOpenChange={(open) => !open && setDeleteTarget(null)}>
@@ -1760,7 +1698,9 @@ const Dashboard = () => {
           </div>
         </DialogContent>
       </Dialog>
-    </div>
+        </div>
+      </div>
+    </SidebarProvider>
   );
 };
 

@@ -113,6 +113,7 @@ export type Database = {
       post_images: {
         Row: {
           aspect_ratio: string
+          caption: string | null
           created_at: string
           id: string
           image_path: string
@@ -121,6 +122,7 @@ export type Database = {
         }
         Insert: {
           aspect_ratio?: string
+          caption?: string | null
           created_at?: string
           id?: string
           image_path: string
@@ -129,6 +131,7 @@ export type Database = {
         }
         Update: {
           aspect_ratio?: string
+          caption?: string | null
           created_at?: string
           id?: string
           image_path?: string
