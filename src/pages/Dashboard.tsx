@@ -1367,8 +1367,8 @@ const Dashboard = () => {
                   )}
                 </div>
               )}
-            </CardContent>
-          </Card>
+          </div>
+
         )}
 
         {activeSection === "profile" && (
