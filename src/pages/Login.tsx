@@ -103,6 +103,19 @@ const Login = () => {
       }
     } catch (error: any) {
       await recordAttempt(false);
+
+      // Registrar intento fallido en la bitácora (visible en /admin)
+      try {
+        await supabase.from("audit_logs" as any).insert({
+          user_id: null,
+          user_email: email,
+          action: "login_failed",
+          resource: "auth",
+          details: { email, reason: error.message },
+        });
+      } catch {
+        // Silent fail
+      }
       
       // Re-check remaining attempts
       try {
