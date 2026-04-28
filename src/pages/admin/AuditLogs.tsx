@@ -32,6 +32,9 @@ interface AuditLog {
 
 const ACTION_LABELS: Record<string, { label: string; color: string }> = {
   login: { label: "Inicio de sesión", color: "bg-blue-500/20 text-blue-400" },
+  login_failed: { label: "Login fallido", color: "bg-red-500/20 text-red-400" },
+  mfa_failed: { label: "MFA fallido", color: "bg-red-500/20 text-red-400" },
+  password_reset_requested: { label: "Reset de contraseña", color: "bg-orange-500/20 text-orange-400" },
   logout: { label: "Cierre de sesión", color: "bg-gray-500/20 text-gray-400" },
   register: { label: "Registro", color: "bg-green-500/20 text-green-400" },
   mfa_enrolled: { label: "MFA activado", color: "bg-purple-500/20 text-purple-400" },
