@@ -41,8 +41,8 @@ const Login = () => {
         setRateLimited(true);
         setLockoutUntil(result.lockout_until);
         toast({
-          title: "Cuenta bloqueada temporalmente",
-          description: `Demasiados intentos fallidos. Intenta de nuevo después de las ${new Date(result.lockout_until).toLocaleTimeString("es")}.`,
+          title: "Demasiados intentos fallidos",
+          description: `Por seguridad, este dispositivo está bloqueado 3 minutos. Podrás reintentar a las ${new Date(result.lockout_until).toLocaleTimeString("es")}.`,
           variant: "destructive",
         });
         return false;
@@ -143,8 +143,8 @@ const Login = () => {
         <div className="flex items-center gap-2 p-3 rounded-lg bg-destructive/10 border border-destructive/30 text-destructive text-sm">
           <AlertTriangle size={16} className="shrink-0" />
           <span>
-            Cuenta bloqueada temporalmente hasta las{" "}
-            {new Date(lockoutUntil).toLocaleTimeString("es")}.
+            Demasiados intentos fallidos. Este dispositivo no podrá iniciar sesión hasta las{" "}
+            <strong>{new Date(lockoutUntil).toLocaleTimeString("es")}</strong> (≈3 minutos).
           </span>
         </div>
       )}

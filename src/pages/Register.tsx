@@ -211,6 +211,7 @@ const Register = () => {
             <div className="space-y-2">
               <Label htmlFor="email">Correo electrónico</Label>
               <Input id="email" type="email" placeholder="tu@email.com" value={email} onChange={(e) => setEmail(e.target.value)} className="bg-input border-border" required />
+              {fieldErrors.email && <p className="text-xs text-destructive">{fieldErrors.email}</p>}
             </div>
 
             <div className="space-y-2">
@@ -221,6 +222,13 @@ const Register = () => {
                   {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
                 </button>
               </div>
+              {fieldErrors.password ? (
+                <p className="text-xs text-destructive">{fieldErrors.password}</p>
+              ) : (
+                <p className="text-xs text-muted-foreground">
+                  Debe incluir mayúscula, minúscula, número y carácter especial.
+                </p>
+              )}
             </div>
 
             <div className="relative">
@@ -249,10 +257,12 @@ const Register = () => {
               <div className="space-y-2">
                 <Label htmlFor="name">Nombre</Label>
                 <Input id="name" placeholder="Tu nombre" value={name} onChange={(e) => setName(e.target.value)} className="bg-input border-border" />
+                {fieldErrors.name && <p className="text-xs text-destructive">{fieldErrors.name}</p>}
               </div>
               <div className="space-y-2">
                 <Label htmlFor="username">Usuario</Label>
                 <Input id="username" placeholder="@usuario" value={username} onChange={(e) => setUsername(e.target.value)} className="bg-input border-border" />
+                {fieldErrors.username && <p className="text-xs text-destructive">{fieldErrors.username}</p>}
               </div>
             </div>
 
@@ -286,6 +296,7 @@ const Register = () => {
                   <Calendar mode="single" selected={birthDate} onSelect={setBirthDate} disabled={(date) => date > new Date() || date < new Date("1900-01-01")} initialFocus className="p-3 pointer-events-auto" captionLayout="dropdown-buttons" fromYear={1940} toYear={new Date().getFullYear()} />
                 </PopoverContent>
               </Popover>
+              {fieldErrors.birthDate && <p className="text-xs text-destructive">{fieldErrors.birthDate}</p>}
             </div>
           </>
         )}
