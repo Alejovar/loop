@@ -25,11 +25,8 @@ const SetupAdmin = () => {
     check();
   }, []);
 
-  useEffect(() => {
-    if (adminExists === true) {
-      navigate("/dashboard");
-    }
-  }, [adminExists, navigate]);
+  // Permitimos entrar aunque ya exista un admin: el código de verificación
+  // promueve al usuario actual a admin de todos modos.
 
   const handlePromote = async () => {
     if (!user) {
