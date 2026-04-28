@@ -1196,45 +1196,30 @@ const Dashboard = () => {
                       </div>
                     </div>
 
-                    <div className="space-y-3">
+                    <div className="grid grid-cols-3 gap-2 sm:grid-cols-4">
                       {composerImages.map((img, idx) => (
-                        <div key={idx} className="rounded-md border border-border bg-background/60 p-2">
-                          <div className="flex gap-3">
-                            <div className="relative w-32 flex-shrink-0 overflow-hidden rounded-md border border-border">
-                              {composerPreviewRatio ? (
-                                <AspectRatio ratio={composerPreviewRatio}>
-                                  <img src={img.previewUrl} alt={`Imagen ${idx + 1}`} className="h-full w-full object-cover" />
-                                </AspectRatio>
-                              ) : (
-                                <img src={img.previewUrl} alt={`Imagen ${idx + 1}`} className="aspect-square w-full object-cover" />
-                              )}
-                              <span className="absolute bottom-1 left-1 rounded bg-background/80 px-1.5 py-0.5 text-[10px] font-medium">
-                                {idx + 1}
-                              </span>
-                            </div>
-                            <div className="flex flex-1 flex-col gap-2">
-                              <Textarea
-                                value={img.caption}
-                                onChange={(event) =>
-                                  setComposerImages((current) =>
-                                    current.map((c, i) => (i === idx ? { ...c, caption: event.target.value } : c)),
-                                  )
-                                }
-                                placeholder="Descripción opcional de esta foto…"
-                                maxLength={300}
-                                className="min-h-[72px] resize-none text-sm"
-                              />
-                              <Button
-                                type="button"
-                                variant="ghost"
-                                size="sm"
-                                onClick={() => removeComposerImage(idx)}
-                                className="self-end text-destructive hover:text-destructive"
-                              >
-                                <X size={14} className="mr-1" /> Quitar
-                              </Button>
-                            </div>
-                          </div>
+                        <div
+                          key={idx}
+                          className="relative overflow-hidden rounded-md border border-border bg-background/60"
+                        >
+                          {composerPreviewRatio ? (
+                            <AspectRatio ratio={composerPreviewRatio}>
+                              <img src={img.previewUrl} alt={`Imagen ${idx + 1}`} className="h-full w-full object-cover" />
+                            </AspectRatio>
+                          ) : (
+                            <img src={img.previewUrl} alt={`Imagen ${idx + 1}`} className="aspect-square w-full object-cover" />
+                          )}
+                          <span className="absolute bottom-1 left-1 rounded bg-background/80 px-1.5 py-0.5 text-[10px] font-medium">
+                            {idx + 1}
+                          </span>
+                          <button
+                            type="button"
+                            onClick={() => removeComposerImage(idx)}
+                            className="absolute right-1 top-1 rounded-full bg-background/80 p-1 text-destructive hover:bg-background"
+                            aria-label={`Quitar imagen ${idx + 1}`}
+                          >
+                            <X size={12} />
+                          </button>
                         </div>
                       ))}
                     </div>
@@ -1260,8 +1245,8 @@ const Dashboard = () => {
                     Publicar
                   </Button>
                 </div>
-              )}
-          </div>
+              </CardContent>
+            </Card>
 
             {dashboardQuery.isLoading ? (
               <>
