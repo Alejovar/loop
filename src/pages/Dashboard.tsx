@@ -227,18 +227,13 @@ const PostImageDisplay = ({ images }: { images: FeedImage[] }) => {
     const img = images[0];
     const ratioClass = aspectClass(img.aspect);
     return (
-      <div className="space-y-2">
-        <div className={cn("overflow-hidden rounded-md border border-border bg-background/60", ratioClass)}>
-          <img
-            src={img.url}
-            alt="Imagen del post"
-            className={cn("w-full", ratioClass ? "h-full object-cover" : "max-h-[520px] object-cover")}
-            loading="lazy"
-          />
-        </div>
-        {img.caption?.trim() && (
-          <p className="whitespace-pre-wrap text-sm leading-6 text-foreground">{img.caption}</p>
-        )}
+      <div className={cn("overflow-hidden rounded-md border border-border bg-background/60", ratioClass)}>
+        <img
+          src={img.url}
+          alt="Imagen del post"
+          className={cn("w-full", ratioClass ? "h-full object-cover" : "max-h-[520px] object-cover")}
+          loading="lazy"
+        />
       </div>
     );
   }
@@ -283,11 +278,6 @@ const PostImageDisplay = ({ images }: { images: FeedImage[] }) => {
           />
         ))}
       </div>
-      {images[current]?.caption?.trim() && (
-        <p className="mt-2 whitespace-pre-wrap text-sm leading-6 text-foreground">
-          {images[current].caption}
-        </p>
-      )}
     </div>
   );
 };
