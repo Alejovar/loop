@@ -18,6 +18,7 @@ import {
   Send,
   Settings,
   ShieldAlert,
+  Flag,
   Trash2,
   User as UserIcon,
   UserRound,
@@ -305,6 +306,30 @@ const Dashboard = () => {
   const [repostTarget, setRepostTarget] = useState<FeedPost | null>(null);
   const [repostComment, setRepostComment] = useState("");
   const [avatarUploading, setAvatarUploading] = useState(false);
+  const [reportTarget, setReportTarget] = useState<{ id: string } | null>(null);
+  const [reportReason, setReportReason] = useState("");
+
+  const reportMutation = useMutation({
+    mutationFn: async ({ postId, reason }: { postId: string; reason: string }) => {
+      if (!user) throw new Error("No autenticado");
+      const { error } = await supabase.from("post_reports" as any).insert({
+        post_id: postId,
+        reporter_id: user.id,
+        reporter_email: user.email,
+        reason: reason.trim().slice(0, 500),
+      } as any);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      toast({ title: "Reporte enviado", description: "Un administrador lo revisará pronto." });
+      setReportTarget(null);
+      setReportReason("");
+    },
+    onError: (err: any) => {
+      const msg = err?.message?.includes("duplicate") ? "Ya reportaste este post." : err?.message ?? "Error";
+      toast({ title: "No se pudo reportar", description: msg, variant: "destructive" });
+    },
+  });
 
   const dashboardQuery = useQuery({
     queryKey: ["social-dashboard", user?.id],
@@ -673,7 +698,9 @@ const Dashboard = () => {
 
   const deletePostMutation = useMutation({
     mutationFn: async (target: { id: string; imagePath: string | null; extraImagePaths: string[] }) => {
-      const { error } = await supabase.from("posts" as any).delete().eq("id", target.id).eq("user_id", user?.id);
+      let q = supabase.from("posts" as any).delete().eq("id", target.id);
+      if (!isAdmin) q = q.eq("user_id", user?.id);
+      const { error } = await q;
       if (error) throw error;
 
       const allPaths = [...(target.imagePath ? [target.imagePath] : []), ...target.extraImagePaths];
@@ -951,19 +978,24 @@ const Dashboard = () => {
               )}
               {isRepost && post.originalPost && renderInnerOriginalPost(post.originalPost)}
             </div>
-            {isMine && (
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <Button variant="ghost" size="icon" aria-label="Opciones del post">
-                    <MoreHorizontal size={18} />
-                  </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="end" className="bg-popover">
-                  {!isRepost && (
-                    <DropdownMenuItem onClick={() => openEdit({ type: "post", id: post.id, content: post.content })}>
-                      <Pencil size={14} className="mr-2" /> Editar
-                    </DropdownMenuItem>
-                  )}
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="ghost" size="icon" aria-label="Opciones del post">
+                  <MoreHorizontal size={18} />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="bg-popover">
+                {isMine && !isRepost && (
+                  <DropdownMenuItem onClick={() => openEdit({ type: "post", id: post.id, content: post.content })}>
+                    <Pencil size={14} className="mr-2" /> Editar
+                  </DropdownMenuItem>
+                )}
+                {!isMine && (
+                  <DropdownMenuItem onClick={() => { setReportTarget({ id: post.id }); setReportReason(""); }}>
+                    <Flag size={14} className="mr-2" /> Reportar
+                  </DropdownMenuItem>
+                )}
+                {(isMine || isAdmin) && (
                   <DropdownMenuItem
                     onClick={() =>
                       setDeleteTarget({
@@ -975,11 +1007,11 @@ const Dashboard = () => {
                     }
                     className="text-destructive focus:text-destructive"
                   >
-                    <Trash2 size={14} className="mr-2" /> Eliminar
+                    <Trash2 size={14} className="mr-2" /> Eliminar{!isMine && isAdmin ? " (admin)" : ""}
                   </DropdownMenuItem>
-                </DropdownMenuContent>
-              </DropdownMenu>
-            )}
+                )}
+              </DropdownMenuContent>
+            </DropdownMenu>
           </div>
         </CardHeader>
 
@@ -1489,6 +1521,32 @@ const Dashboard = () => {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Report dialog */}
+      <Dialog open={!!reportTarget} onOpenChange={(open) => { if (!open) { setReportTarget(null); setReportReason(""); } }}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Reportar publicación</DialogTitle>
+            <DialogDescription>Cuéntanos por qué este contenido es inapropiado. Un administrador lo revisará.</DialogDescription>
+          </DialogHeader>
+          <Textarea
+            value={reportReason}
+            onChange={(e) => setReportReason(e.target.value)}
+            placeholder="Motivo del reporte (spam, acoso, contenido ofensivo, etc.)"
+            maxLength={500}
+            rows={4}
+          />
+          <DialogFooter>
+            <Button variant="outline" onClick={() => { setReportTarget(null); setReportReason(""); }}>Cancelar</Button>
+            <Button
+              onClick={() => reportTarget && reportMutation.mutate({ postId: reportTarget.id, reason: reportReason })}
+              disabled={!reportReason.trim() || reportMutation.isPending}
+            >
+              {reportMutation.isPending ? <Loader2 className="animate-spin" size={16} /> : "Enviar reporte"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* Edit dialog */}
       <Dialog open={!!editTarget} onOpenChange={(open) => !open && setEditTarget(null)}>
