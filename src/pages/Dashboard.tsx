@@ -1522,6 +1522,32 @@ const Dashboard = () => {
         </AlertDialogContent>
       </AlertDialog>
 
+      {/* Report dialog */}
+      <Dialog open={!!reportTarget} onOpenChange={(open) => { if (!open) { setReportTarget(null); setReportReason(""); } }}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Reportar publicación</DialogTitle>
+            <DialogDescription>Cuéntanos por qué este contenido es inapropiado. Un administrador lo revisará.</DialogDescription>
+          </DialogHeader>
+          <Textarea
+            value={reportReason}
+            onChange={(e) => setReportReason(e.target.value)}
+            placeholder="Motivo del reporte (spam, acoso, contenido ofensivo, etc.)"
+            maxLength={500}
+            rows={4}
+          />
+          <DialogFooter>
+            <Button variant="outline" onClick={() => { setReportTarget(null); setReportReason(""); }}>Cancelar</Button>
+            <Button
+              onClick={() => reportTarget && reportMutation.mutate({ postId: reportTarget.id, reason: reportReason })}
+              disabled={!reportReason.trim() || reportMutation.isPending}
+            >
+              {reportMutation.isPending ? <Loader2 className="animate-spin" size={16} /> : "Enviar reporte"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
       {/* Edit dialog */}
       <Dialog open={!!editTarget} onOpenChange={(open) => !open && setEditTarget(null)}>
         <DialogContent>
