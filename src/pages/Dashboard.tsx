@@ -18,6 +18,7 @@ import {
   Send,
   Settings,
   ShieldAlert,
+  Flag,
   Trash2,
   User as UserIcon,
   UserRound,
@@ -305,6 +306,30 @@ const Dashboard = () => {
   const [repostTarget, setRepostTarget] = useState<FeedPost | null>(null);
   const [repostComment, setRepostComment] = useState("");
   const [avatarUploading, setAvatarUploading] = useState(false);
+  const [reportTarget, setReportTarget] = useState<{ id: string } | null>(null);
+  const [reportReason, setReportReason] = useState("");
+
+  const reportMutation = useMutation({
+    mutationFn: async ({ postId, reason }: { postId: string; reason: string }) => {
+      if (!user) throw new Error("No autenticado");
+      const { error } = await supabase.from("post_reports" as any).insert({
+        post_id: postId,
+        reporter_id: user.id,
+        reporter_email: user.email,
+        reason: reason.trim().slice(0, 500),
+      } as any);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      toast({ title: "Reporte enviado", description: "Un administrador lo revisará pronto." });
+      setReportTarget(null);
+      setReportReason("");
+    },
+    onError: (err: any) => {
+      const msg = err?.message?.includes("duplicate") ? "Ya reportaste este post." : err?.message ?? "Error";
+      toast({ title: "No se pudo reportar", description: msg, variant: "destructive" });
+    },
+  });
 
   const dashboardQuery = useQuery({
     queryKey: ["social-dashboard", user?.id],
