@@ -7,7 +7,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import LoopLogo from "@/components/LoopLogo";
 import UserManagement from "./UserManagement";
 import AuditLogs from "./AuditLogs";
-import { LogOut, Users, ScrollText, ArrowLeft } from "lucide-react";
+import Reports from "./Reports";
+import { LogOut, Users, ScrollText, ArrowLeft, Flag } from "lucide-react";
 
 const AdminDashboard = () => {
   const navigate = useNavigate();
@@ -62,6 +63,12 @@ const AdminDashboard = () => {
             >
               <ScrollText size={14} className="mr-1.5" /> Bitácora
             </TabsTrigger>
+            <TabsTrigger
+              value="reports"
+              className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground"
+            >
+              <Flag size={14} className="mr-1.5" /> Reportes
+            </TabsTrigger>
           </TabsList>
 
           <TabsContent value="users">
@@ -70,6 +77,10 @@ const AdminDashboard = () => {
 
           <TabsContent value="audit">
             <AuditLogs />
+          </TabsContent>
+
+          <TabsContent value="reports">
+            <Reports />
           </TabsContent>
         </Tabs>
       </main>
