@@ -976,19 +976,24 @@ const Dashboard = () => {
               )}
               {isRepost && post.originalPost && renderInnerOriginalPost(post.originalPost)}
             </div>
-            {isMine && (
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <Button variant="ghost" size="icon" aria-label="Opciones del post">
-                    <MoreHorizontal size={18} />
-                  </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="end" className="bg-popover">
-                  {!isRepost && (
-                    <DropdownMenuItem onClick={() => openEdit({ type: "post", id: post.id, content: post.content })}>
-                      <Pencil size={14} className="mr-2" /> Editar
-                    </DropdownMenuItem>
-                  )}
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="ghost" size="icon" aria-label="Opciones del post">
+                  <MoreHorizontal size={18} />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="bg-popover">
+                {isMine && !isRepost && (
+                  <DropdownMenuItem onClick={() => openEdit({ type: "post", id: post.id, content: post.content })}>
+                    <Pencil size={14} className="mr-2" /> Editar
+                  </DropdownMenuItem>
+                )}
+                {!isMine && (
+                  <DropdownMenuItem onClick={() => { setReportTarget({ id: post.id }); setReportReason(""); }}>
+                    <Flag size={14} className="mr-2" /> Reportar
+                  </DropdownMenuItem>
+                )}
+                {(isMine || isAdmin) && (
                   <DropdownMenuItem
                     onClick={() =>
                       setDeleteTarget({
@@ -1000,11 +1005,11 @@ const Dashboard = () => {
                     }
                     className="text-destructive focus:text-destructive"
                   >
-                    <Trash2 size={14} className="mr-2" /> Eliminar
+                    <Trash2 size={14} className="mr-2" /> Eliminar{!isMine && isAdmin ? " (admin)" : ""}
                   </DropdownMenuItem>
-                </DropdownMenuContent>
-              </DropdownMenu>
-            )}
+                )}
+              </DropdownMenuContent>
+            </DropdownMenu>
           </div>
         </CardHeader>
 
