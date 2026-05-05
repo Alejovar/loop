@@ -698,7 +698,9 @@ const Dashboard = () => {
 
   const deletePostMutation = useMutation({
     mutationFn: async (target: { id: string; imagePath: string | null; extraImagePaths: string[] }) => {
-      const { error } = await supabase.from("posts" as any).delete().eq("id", target.id).eq("user_id", user?.id);
+      let q = supabase.from("posts" as any).delete().eq("id", target.id);
+      if (!isAdmin) q = q.eq("user_id", user?.id);
+      const { error } = await q;
       if (error) throw error;
 
       const allPaths = [...(target.imagePath ? [target.imagePath] : []), ...target.extraImagePaths];
