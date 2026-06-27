@@ -1,73 +1,86 @@
-# Welcome to your Lovable project
+# Loop
 
-## Project info
+Loop es una mini red social construida con React, TypeScript y Vite. La app está pensada como base para compartir contenido, autenticar usuarios y gestionar flujos de acceso de forma simple.
 
-**URL**: https://lovable.dev/projects/REPLACE_WITH_PROJECT_ID
+## Resumen
 
-## How can I edit this code?
+Loop combina autenticación, publicación social y moderación básica en una experiencia compacta. La interfaz está organizada alrededor de tres áreas principales: feed, búsqueda y perfil.
 
-There are several ways of editing your application.
+## Qué incluye
 
-**Use Lovable**
+- Registro e inicio de sesión.
+- Recuperación de contraseña.
+- Verificación de MFA.
+- Feed con publicaciones, imágenes y reposts.
+- Comentarios, likes y reposts.
+- Búsqueda de usuarios y publicaciones.
+- Perfil editable con nombre de usuario y biografía.
+- Reporte de publicaciones para moderación.
+- Integración con Supabase para backend y autenticación.
+- Panel de administración para usuarios con permisos de admin.
 
-Simply visit the [Lovable Project](https://lovable.dev/projects/REPLACE_WITH_PROJECT_ID) and start prompting.
+## Stack
 
-Changes made via Lovable will be committed automatically to this repo.
+- Vite
+- React
+- TypeScript
+- Tailwind CSS
+- shadcn/ui
+- Supabase
 
-**Use your preferred IDE**
+## Rutas principales
 
-If you want to work locally using your own IDE, you can clone this repo and push changes. Pushed changes will also be reflected in Lovable.
+- `/login`: acceso a la cuenta.
+- `/register`: creación de cuenta.
+- `/forgot-password` y `/reset-password`: recuperación de acceso.
+- `/mfa-setup` y `/mfa-verify`: configuración y validación de MFA.
+- `/dashboard`: experiencia principal de la red social.
+- `/admin`: panel de administración.
 
-The only requirement is having Node.js & npm installed - [install with nvm](https://github.com/nvm-sh/nvm#installing-and-updating)
+## Requisitos
 
-Follow these steps:
+- Node.js y npm instalados.
+
+## Desarrollo local
 
 ```sh
-# Step 1: Clone the repository using the project's Git URL.
-git clone <YOUR_GIT_URL>
-
-# Step 2: Navigate to the project directory.
-cd <YOUR_PROJECT_NAME>
-
-# Step 3: Install the necessary dependencies.
-npm i
-
-# Step 4: Start the development server with auto-reloading and an instant preview.
+npm install
 npm run dev
 ```
 
-**Edit a file directly in GitHub**
+## Scripts disponibles
 
-- Navigate to the desired file(s).
-- Click the "Edit" button (pencil icon) at the top right of the file view.
-- Make your changes and commit the changes.
+- `npm run dev`: inicia el servidor de desarrollo.
+- `npm run build`: genera el build de producción.
+- `npm run preview`: previsualiza el build generado.
+- `npm run lint`: ejecuta ESLint.
+- `npm run test`: ejecuta los tests con Vitest.
 
-**Use GitHub Codespaces**
+## Funcionalidades de producto
 
-- Navigate to the main page of your repository.
-- Click on the "Code" button (green button) near the top right.
-- Select the "Codespaces" tab.
-- Click on "New codespace" to launch a new Codespace environment.
-- Edit files directly within the Codespace and commit and push your changes once you're done.
+- Publicar texto e imágenes.
+- Crear publicaciones con múltiples imágenes y distintas proporciones.
+- Responder con comentarios en cada post.
+- Marcar publicaciones con like y hacer repost.
+- Ver actividad reciente con fechas relativas.
+- Editar nombre, usuario y biografía del perfil.
+- Navegar entre feed, búsqueda y perfil desde la barra lateral.
+- Acceder al panel de admin si la cuenta tiene ese rol.
 
-## What technologies are used for this project?
+## Seguridad y moderación
 
-This project is built with:
+- CAPTCHA matemático en el login.
+- Rate limiting para reducir intentos de acceso fallidos.
+- Verificación de email antes de iniciar sesión.
+- MFA para cuentas que lo tengan habilitado.
+- Registro de acciones en audit logs.
+- Reporte de publicaciones para revisión manual.
 
-- Vite
-- TypeScript
-- React
-- shadcn-ui
-- Tailwind CSS
+## Estructura general
 
-## How can I deploy this project?
+- `src/pages`: pantallas principales de la app.
+- `src/components`: componentes reutilizables y UI.
+- `src/contexts`: contexto de autenticación.
+- `src/hooks`: hooks personalizados.
+- `supabase`: configuración, funciones y migraciones.
 
-Simply open [Lovable](https://lovable.dev/projects/REPLACE_WITH_PROJECT_ID) and click on Share -> Publish.
-
-## Can I connect a custom domain to my Lovable project?
-
-Yes, you can!
-
-To connect a domain, navigate to Project > Settings > Domains and click Connect Domain.
-
-Read more here: [Setting up a custom domain](https://docs.lovable.dev/features/custom-domain#custom-domain)
